@@ -105,7 +105,7 @@ class UI:
 
         flashlight = "开" if player.flashlight_on and player.flashlight_power > 0 else "关"
         self.draw_text(surface, f"手电：{flashlight}", (18, 102), 19, COLOR_MUTED)
-        self.draw_text(surface, "W/S 移动  A/D或鼠标转向  Space/左键交互  右键手电  B 背包  ESC 暂停", (18, SCREEN_HEIGHT - 32), 18, COLOR_MUTED)
+        self.draw_text(surface, "W/S 移动  鼠标视角  Space/左键交互  右键手电  B 背包  F2画质  ESC 暂停", (18, SCREEN_HEIGHT - 32), 18, COLOR_MUTED)
 
         cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
         pygame.draw.line(surface, (205, 218, 205), (cx - 6, cy), (cx + 6, cy), 1)
@@ -147,6 +147,7 @@ class UI:
                 "Space 或鼠标左键：交互、拾取、确认",
                 "鼠标右键：开关手电筒",
                 "B 或 I：背包",
+                "F2：切换画质",
                 "ESC：暂停或返回",
                 "按 ESC 返回主菜单",
             ]

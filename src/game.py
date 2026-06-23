@@ -15,6 +15,7 @@ from .renderer import RaycastingRenderer
 from .settings import (
     COLOR_BLACK,
     FPS,
+    MOUSE_PITCH_SENSITIVITY,
     MOUSE_SENSITIVITY,
     SANITY_DARK_DRAIN_PER_SEC,
     SANITY_LOW_AUDIO_THRESHOLD,
@@ -92,6 +93,10 @@ class Game:
                 self.set_state(STATE_PAUSED)
             elif key in (pygame.K_b, pygame.K_i):
                 self.set_state(STATE_INVENTORY)
+            elif key == pygame.K_F2:
+                quality = self.renderer.cycle_quality()
+                names = {"performance": "性能", "balanced": "平衡", "sharp": "清晰"}
+                self.set_message(f"渲染质量：{names.get(quality, quality)}", 1.8)
             elif key == pygame.K_SPACE:
                 self.set_message(self.interaction.interact(self), 4.0)
             return
@@ -148,9 +153,11 @@ class Game:
     def _handle_mouse_motion(self, rel: tuple[int, int]) -> None:
         if self.state != STATE_PLAYING:
             return
-        dx, _dy = rel
+        dx, dy = rel
         if dx:
             self.player.angle = (self.player.angle + dx * MOUSE_SENSITIVITY) % math.tau
+        if dy:
+            self.player.look_vertical(-dy * MOUSE_PITCH_SENSITIVITY)
 
     def _confirm_menu(self) -> None:
         if self.menu_selected == 0:

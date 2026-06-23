@@ -39,6 +39,7 @@ class Player:
     x: float = 3.0
     y: float = 3.0
     angle: float = 0.0
+    pitch_offset: float = 0.0
     hp: int = 100
     sanity: float = SANITY_MAX
     flashlight_power: float = FLASHLIGHT_START
@@ -50,6 +51,9 @@ class Player:
 
     def rotate(self, direction: float, dt: float) -> None:
         self.angle = (self.angle + direction * self.rotation_speed * dt) % (math.tau)
+
+    def look_vertical(self, delta: float) -> None:
+        self.pitch_offset += delta
 
     def move(self, direction: float, dt: float, game_map) -> None:
         distance = direction * self.speed * dt
