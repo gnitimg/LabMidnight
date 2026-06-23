@@ -1,5 +1,6 @@
 .idea/
 .venv/
+.agents/
 *.pyc
 *.pyo
 __pycache__/
