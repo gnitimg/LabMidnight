@@ -1,0 +1,2 @@
+"""LabMidnight game package."""
+
