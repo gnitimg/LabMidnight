@@ -1,0 +1,44 @@
+; LabMidnight editable map layout.
+; One character is one 60cm floor tile.
+;
+; Terrain:
+;   # wall
+;   . floor
+;   @ player start
+;
+; Doors:
+;   L lab door
+;   M machine/server room door, uses the lab door texture
+;   C classroom door
+;   G guard room door
+;   P power room door
+;   E exit door
+; Doors are actual door width. Fill any unused doorway space with # walls.
+;
+; Objects:
+;   1 lab desk
+;   2 blackboard
+;   3 lectern
+;   4 guard desk
+;   5 fuse cabinet
+;   6 battery
+;   7 power box
+;   8 server terminal
+;   9 exit panel
+
+##################################
+#........#########.............###
+#........#########..........2..###
+#.@1.....#########.............###
+#........#########...3.........###
+#........#########.............###
+#####L#################C##########
+#................................#
+#................................#
+####G########P#######M#######E####
+#.......##.......##......##......#
+#.......##.......##......##......#
+#..4....##...7...##..8...##..9...#
+#....5..##.......##......##......#
+#.......##.......##......##......#
+##################################

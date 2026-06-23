@@ -54,7 +54,8 @@ class Game:
 
     def new_game(self) -> None:
         self.game_map = GameMap()
-        self.player = Player()
+        start_x, start_y = self.game_map.start_position
+        self.player = Player(x=start_x, y=start_y)
         self.renderer = RaycastingRenderer(self.screen, self.game_map)
         self.interaction = InteractionSystem(self.game_map)
         self.started_at = time.monotonic()
