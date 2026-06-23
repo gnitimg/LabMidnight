@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pygame
 
-from .ending import FAILURE_LINES, FAILURE_TITLE, SUCCESS_LINES, SUCCESS_TITLE
+from .ending import FAILURE_TITLE, SUCCESS_TITLE
 from .settings import (
     COLOR_DANGER,
     COLOR_MUTED,
@@ -193,20 +193,41 @@ class UI:
             y += 66
 
     def draw_ending(self, surface: pygame.Surface, success: bool) -> None:
-        surface.fill((235, 238, 230) if success else (3, 5, 6))
-        title = SUCCESS_TITLE if success else FAILURE_TITLE
-        lines = SUCCESS_LINES if success else FAILURE_LINES
-        title_color = (38, 46, 42) if success else COLOR_WARNING
-        text_color = (38, 46, 42) if success else COLOR_TEXT
-        self.draw_text(surface, title, (SCREEN_WIDTH // 2, 70), 38, title_color, bold=True, center=True)
-        top = 132
-        for index, line in enumerate(lines):
-            if not line:
-                top += 18
-                continue
-            self.draw_text(surface, line, (SCREEN_WIDTH // 2, top + index * 28), 23, text_color, center=True)
-        hint_color = (78, 86, 82) if success else COLOR_MUTED
-        self.draw_text(surface, "按 Enter 回到主菜单，按 R 重新开始", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 44), 20, hint_color, center=True)
+        if success:
+            self._draw_success_scene(surface)
+        else:
+            self._draw_failure_scene(surface)
+
+    def _draw_success_scene(self, surface: pygame.Surface) -> None:
+        surface.fill((214, 221, 210))
+        pygame.draw.rect(surface, (24, 31, 32), (0, 0, SCREEN_WIDTH, 92))
+        pygame.draw.rect(surface, (54, 66, 67), (92, 108, 184, 154), border_radius=6)
+        pygame.draw.rect(surface, (11, 16, 18), (108, 124, 152, 122), border_radius=4)
+        pygame.draw.circle(surface, (238, 228, 166), (184, 184), 32)
+        pygame.draw.rect(surface, (42, 47, 47), (332, 316, 372, 84), border_radius=8)
+        pygame.draw.rect(surface, (98, 111, 105), (356, 278, 130, 52), border_radius=6)
+        pygame.draw.rect(surface, (183, 168, 103), (554, 330, 108, 18), border_radius=9)
+        pygame.draw.circle(surface, (244, 224, 132), (668, 338), 22)
+        pygame.draw.line(surface, (244, 224, 132), (556, 339), (640, 339), 5)
+        self.draw_text(surface, SUCCESS_TITLE, (SCREEN_WIDTH // 2, 64), 36, (36, 46, 42), bold=True, center=True)
+        self.draw_text(surface, "按 Enter 回到主菜单，按 R 重新开始", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 44), 20, (70, 82, 78), center=True)
+
+    def _draw_failure_scene(self, surface: pygame.Surface) -> None:
+        surface.fill((3, 5, 6))
+        pygame.draw.rect(surface, (18, 22, 23), (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.draw.rect(surface, (215, 222, 206), (260, 92, 440, 214), border_radius=4)
+        pygame.draw.rect(surface, (31, 39, 38), (284, 116, 392, 166), border_radius=2)
+        pygame.draw.line(surface, (90, 126, 108), (320, 244), (390, 196), 2)
+        pygame.draw.line(surface, (90, 126, 108), (390, 196), (452, 232), 2)
+        pygame.draw.line(surface, (90, 126, 108), (452, 232), (526, 172), 2)
+        pygame.draw.line(surface, (90, 126, 108), (526, 172), (616, 230), 2)
+        pygame.draw.rect(surface, (74, 82, 75), (410, 284, 140, 10))
+        pygame.draw.rect(surface, (22, 16, 14), (0, 408, SCREEN_WIDTH, 132))
+        pygame.draw.rect(surface, (35, 25, 20), (340, 362, 300, 52), border_radius=5)
+        pygame.draw.circle(surface, (11, 9, 8), (480, 348), 34)
+        self.draw_text(surface, "LabMidnight", (480, 148), 28, (116, 162, 134), bold=True, center=True)
+        self.draw_text(surface, FAILURE_TITLE, (SCREEN_WIDTH // 2, 58), 36, COLOR_WARNING, bold=True, center=True)
+        self.draw_text(surface, "按 Enter 回到主菜单，按 R 重新开始", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 44), 20, COLOR_MUTED, center=True)
 
     def _overlay(self, surface: pygame.Surface, alpha: int) -> None:
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)

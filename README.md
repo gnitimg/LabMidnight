@@ -60,6 +60,20 @@ error.wav
 sanity_low.wav
 ```
 
+贴图资源放入 `assets/textures/`，缺失时会使用默认纯色绘制。标准名称见 [assets/ASSET_NAMES.md](assets/ASSET_NAMES.md)，常用文件包括：
+
+```text
+ceiling.png
+floor.png
+wall.png
+door.png
+door_lab.png
+door_classroom.png
+door_power.png
+door_server.png
+door_exit.png
+```
+
 ## 最短通关路线
 
 ```text
