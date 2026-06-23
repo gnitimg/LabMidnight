@@ -17,10 +17,13 @@ from .settings import (
     CEILING_HEIGHT_UNITS,
     COLOR_BLACK,
     DELTA_ANGLE,
+    DOOR_PANEL_NEAR_CLIP,
+    DOOR_OPEN_REST_WIDTH,
     DOOR_TILES,
     FOV,
     HALF_FOV,
     HALF_HEIGHT,
+    HALF_WIDTH,
     MAX_DEPTH,
     NUM_RAYS,
     PITCH_VISUAL_RANGE,
@@ -78,11 +81,13 @@ class RaycastingRenderer:
         horizon = self._horizon(player)
         self._draw_background(player, elapsed, horizon)
         start_angle = player.angle - HALF_FOV
+        depth_buffer = [MAX_DEPTH] * NUM_RAYS
 
         for ray in range(NUM_RAYS):
             ray_angle = start_angle + ray * DELTA_ANGLE
             distance, tile, hit_x, hit_y, side, cell, texture_offset = self._cast_ray(player.x, player.y, ray_angle)
             corrected = max(0.0001, distance * math.cos(ray_angle - player.angle))
+            depth_buffer[ray] = corrected
             ceiling_delta = CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS
             top_y = horizon - VERTICAL_PROJECTION * ceiling_delta / corrected
             bottom_y = horizon + VERTICAL_PROJECTION * CAMERA_HEIGHT_UNITS / corrected
@@ -98,6 +103,8 @@ class RaycastingRenderer:
             else:
                 color = self._shade_color(tile, corrected, ray_angle, player, elapsed)
                 pygame.draw.rect(self.screen, color, (x, y, column_width + 1, int(wall_height)))
+
+        self._draw_open_doors(player, elapsed, horizon, depth_buffer)
 
     def _horizon(self, player) -> int:
         # Keep pitch input unbounded, but map it to a finite projection range.
@@ -396,6 +403,15 @@ class RaycastingRenderer:
                 distance = (map_y - y + (1 - step_y) / 2) / ray_dir_y if abs(ray_dir_y) > 1e-8 else MAX_DEPTH
 
             tile = self.game_map.tile_at(map_x, map_y)
+            if tile in DOOR_TILES:
+                if not self.game_map.is_open_door(map_x, map_y):
+                    door_hit = self._door_plane_hit(x, y, ray_dir_x, ray_dir_y, map_x, map_y)
+                    if door_hit is not None:
+                        hit_distance, door_hit_x, door_hit_y, door_side, door_texture_offset = door_hit
+                        projected_distance = max(RAY_NEAR_CLIP, min(MAX_DEPTH, hit_distance))
+                        return projected_distance, tile, door_hit_x, door_hit_y, door_side, (map_x, map_y), door_texture_offset
+                continue
+
             if self.game_map.is_solid_cell(map_x, map_y):
                 hit_distance = min(MAX_DEPTH, abs(distance))
                 projected_distance = max(RAY_NEAR_CLIP, hit_distance)
@@ -411,6 +427,225 @@ class RaycastingRenderer:
                 break
 
         return MAX_DEPTH, TILE_WALL, x + ray_dir_x * MAX_DEPTH, y + ray_dir_y * MAX_DEPTH, side, (map_x, map_y), None
+
+    def _door_plane_hit(
+        self,
+        origin_x: float,
+        origin_y: float,
+        ray_dir_x: float,
+        ray_dir_y: float,
+        cell_x: int,
+        cell_y: int,
+    ) -> tuple[float, float, float, int, float] | None:
+        group = self.game_map.door_group_at(cell_x, cell_y)
+        xs = [x for x, _ in group]
+        ys = [y for _, y in group]
+        min_x = min(xs)
+        max_x = max(xs)
+        min_y = min(ys)
+        max_y = max(ys)
+
+        if self.game_map.door_orientation_at(cell_x, cell_y) == "horizontal":
+            if abs(ray_dir_y) <= 1e-8:
+                return None
+            plane_y = min_y + 0.5
+            distance = (plane_y - origin_y) / ray_dir_y
+            if distance <= 1e-5:
+                return None
+            hit_x = origin_x + ray_dir_x * distance
+            if not (min_x <= hit_x <= max_x + 1.0):
+                return None
+            texture_offset = (hit_x - min_x) / max(1.0, max_x - min_x + 1.0)
+            return abs(distance), hit_x, plane_y, 1, max(0.0, min(0.999, texture_offset))
+
+        if abs(ray_dir_x) <= 1e-8:
+            return None
+        plane_x = min_x + 0.5
+        distance = (plane_x - origin_x) / ray_dir_x
+        if distance <= 1e-5:
+            return None
+        hit_y = origin_y + ray_dir_y * distance
+        if not (min_y <= hit_y <= max_y + 1.0):
+            return None
+        texture_offset = (hit_y - min_y) / max(1.0, max_y - min_y + 1.0)
+        return abs(distance), plane_x, hit_y, 0, max(0.0, min(0.999, texture_offset))
+
+    def _draw_open_doors(self, player, elapsed: float, horizon: int, depth_buffer: list[float]) -> None:
+        drawn: set[frozenset[tuple[int, int]]] = set()
+        groups: list[frozenset[tuple[int, int]]] = []
+        for cell in sorted(self.game_map.open_doors):
+            group = self.game_map.door_group_at(*cell)
+            if group in drawn:
+                continue
+            drawn.add(group)
+            groups.append(group)
+
+        groups.sort(
+            key=lambda group: sum((x + 0.5 - player.x) ** 2 + (y + 0.5 - player.y) ** 2 for x, y in group)
+            / len(group),
+            reverse=True,
+        )
+
+        for group in groups:
+            x, y = min(group)
+            tile = self.game_map.tile_at(x, y)
+            texture = self.textures.for_tile(tile)
+            if texture is None:
+                continue
+            progress = max(self.game_map.door_progress_at(cx, cy) for cx, cy in group)
+            self._draw_open_door_panel(texture, tile, (x, y), progress, player, elapsed, horizon, depth_buffer)
+
+    def _draw_open_door_panel(
+        self,
+        texture: pygame.Surface,
+        tile: int,
+        cell: tuple[int, int],
+        progress: float,
+        player,
+        elapsed: float,
+        horizon: int,
+        depth_buffer: list[float],
+    ) -> None:
+        x, y = cell
+        if math.hypot(x + 0.5 - player.x, y + 0.5 - player.y) < 0.95:
+            return
+
+        progress = max(0.0, min(1.0, progress))
+        eased = progress * progress * (3.0 - 2.0 * progress)
+        visible_width = max(DOOR_OPEN_REST_WIDTH, 1.0 - (1.0 - DOOR_OPEN_REST_WIDTH) * eased)
+        orientation = self.game_map.door_orientation_at(x, y)
+
+        if orientation == "horizontal":
+            direction = self._door_slide_direction(x, y, axis="x")
+            y_plane = float(y) if player.y < y + 0.5 else float(y + 1)
+            if direction >= 0:
+                start = x + 1.0 - visible_width
+                texture_start = 1.0 - visible_width
+            else:
+                start = float(x)
+                texture_start = 0.0
+            p0 = (start, y_plane)
+            p1 = (start + visible_width, y_plane)
+        else:
+            direction = self._door_slide_direction(x, y, axis="y")
+            x_plane = float(x) if player.x < x + 0.5 else float(x + 1)
+            if direction >= 0:
+                start = y + 1.0 - visible_width
+                texture_start = 1.0 - visible_width
+            else:
+                start = float(y)
+                texture_start = 0.0
+            p0 = (x_plane, start)
+            p1 = (x_plane, start + visible_width)
+
+        self._draw_world_panel(
+            texture,
+            tile,
+            p0,
+            p1,
+            player,
+            elapsed,
+            horizon,
+            depth_buffer,
+            texture_start=texture_start,
+            texture_span=visible_width,
+        )
+
+    def _door_slide_direction(self, x: int, y: int, *, axis: str) -> int:
+        if axis == "x":
+            right_is_wall = self.game_map.tile_at(x + 1, y) == TILE_WALL
+            left_is_wall = self.game_map.tile_at(x - 1, y) == TILE_WALL
+            if right_is_wall:
+                return 1
+            if left_is_wall:
+                return -1
+            return 1
+
+        down_is_wall = self.game_map.tile_at(x, y + 1) == TILE_WALL
+        up_is_wall = self.game_map.tile_at(x, y - 1) == TILE_WALL
+        if down_is_wall:
+            return 1
+        if up_is_wall:
+            return -1
+        return 1
+
+    def _draw_world_panel(
+        self,
+        texture: pygame.Surface,
+        tile: int,
+        p0: tuple[float, float],
+        p1: tuple[float, float],
+        player,
+        elapsed: float,
+        horizon: int,
+        depth_buffer: list[float],
+        *,
+        texture_start: float = 0.0,
+        texture_span: float = 1.0,
+    ) -> None:
+        ax, ay, az = self._camera_space(p0[0], p0[1], player)
+        bx, by, bz = self._camera_space(p1[0], p1[1], player)
+        near = DOOR_PANEL_NEAR_CLIP
+        if az <= near and bz <= near:
+            return
+        if az <= near:
+            t = (near - az) / (bz - az)
+            ax = ax + (bx - ax) * t
+            az = near
+        elif bz <= near:
+            t = (near - bz) / (az - bz)
+            bx = bx + (ax - bx) * t
+            bz = near
+
+        sx0 = HALF_WIDTH + ax / az * VERTICAL_PROJECTION
+        sx1 = HALF_WIDTH + bx / bz * VERTICAL_PROJECTION
+        if abs(sx1 - sx0) < 1.0:
+            return
+        if abs(sx1 - sx0) > SCREEN_WIDTH * 0.88:
+            return
+        texture_u0 = max(0.0, min(1.0, texture_start))
+        texture_u1 = max(0.0, min(1.0, texture_start + texture_span))
+        if sx0 > sx1:
+            sx0, sx1 = sx1, sx0
+            az, bz = bz, az
+            texture_u0, texture_u1 = texture_u1, texture_u0
+
+        start_x = max(0, int(math.floor(sx0)))
+        end_x = min(SCREEN_WIDTH - 1, int(math.ceil(sx1)))
+        if end_x < 0 or start_x >= SCREEN_WIDTH:
+            return
+
+        texture_width, texture_height = texture.get_size()
+        span = max(1.0, sx1 - sx0)
+        for screen_x in range(start_x, end_x + 1):
+            t = (screen_x - sx0) / span
+            if not 0.0 <= t <= 1.0:
+                continue
+            distance = max(RAY_NEAR_CLIP, az + (bz - az) * t)
+            ray_index = min(NUM_RAYS - 1, max(0, int(screen_x * NUM_RAYS / SCREEN_WIDTH)))
+            if distance > depth_buffer[ray_index] + 0.04:
+                continue
+
+            top_y = horizon - VERTICAL_PROJECTION * (CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS) / distance
+            bottom_y = horizon + VERTICAL_PROJECTION * CAMERA_HEIGHT_UNITS / distance
+            wall_height = min(SCREEN_HEIGHT * 2.2, bottom_y - top_y)
+            texture_u = texture_u0 + (texture_u1 - texture_u0) * t
+            texture_x = max(0, min(texture_width - 1, int(texture_u * texture_width)))
+            source = pygame.Rect(texture_x, 0, 1, texture_height)
+            column = texture.subsurface(source)
+            column_height = max(1, int(wall_height))
+            column = pygame.transform.scale(column, (2, column_height))
+            shade = self._shade_factor(distance, player.angle, player, elapsed)
+            shade_value = max(0, min(255, int(255 * min(1.0, shade))))
+            column.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
+            self.screen.blit(column, (screen_x, int(top_y)))
+
+    def _camera_space(self, x: float, y: float, player) -> tuple[float, float, float]:
+        dx = x - player.x
+        dy = y - player.y
+        right = -dx * math.sin(player.angle) + dy * math.cos(player.angle)
+        forward = dx * math.cos(player.angle) + dy * math.sin(player.angle)
+        return right, 0.0, forward
 
     def _draw_textured_wall(
         self,

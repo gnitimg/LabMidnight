@@ -8,6 +8,8 @@ from typing import Iterable
 
 from .settings import (
     DOOR_COLLISION_THICKNESS,
+    DOOR_OPEN_SPEED,
+    DOOR_PASSABLE_PROGRESS,
     DOOR_TILES,
     PLAYER_RADIUS,
     TILE_CLASSROOM_DOOR,
@@ -98,6 +100,7 @@ class GameMap:
         self.height = 16
         self.grid = [[TILE_WALL for _ in range(self.width)] for _ in range(self.height)]
         self.open_doors: set[tuple[int, int]] = set()
+        self.door_open_progress: dict[tuple[int, int], float] = {}
         self.picked_objects: set[tuple[int, int]] = set()
         self.objects: dict[tuple[int, int], MapObject] = {}
         self.door_roles: dict[tuple[int, int], str] = {}
@@ -289,9 +292,24 @@ class GameMap:
     def is_open_door(self, x: int, y: int) -> bool:
         return (x, y) in self.open_doors
 
+    def is_passable_door(self, x: int, y: int) -> bool:
+        return self.is_open_door(x, y) and self.door_progress_at(x, y) >= DOOR_PASSABLE_PROGRESS
+
     def open_door(self, x: int, y: int) -> None:
         if self.is_door(x, y):
-            self.open_doors.update(self.door_group_at(x, y))
+            for cell in self.door_group_at(x, y):
+                self.open_doors.add(cell)
+                self.door_open_progress.setdefault(cell, 0.0)
+
+    def update_doors(self, dt: float) -> None:
+        if not self.door_open_progress:
+            return
+        step = DOOR_OPEN_SPEED * dt
+        for cell, progress in list(self.door_open_progress.items()):
+            self.door_open_progress[cell] = min(1.0, progress + step)
+
+    def door_progress_at(self, x: int, y: int) -> float:
+        return self.door_open_progress.get((x, y), 0.0)
 
     def door_group_at(self, x: int, y: int) -> frozenset[tuple[int, int]]:
         return self.door_groups.get((x, y), frozenset({(x, y)}))
@@ -338,7 +356,7 @@ class GameMap:
                 tile = self.tile_at(cell_x, cell_y)
                 if tile == TILE_WALL and self._collides_wall_rect(x, y, cell_x, cell_y, radius_squared):
                     return False
-                if tile in DOOR_TILES and not self.is_open_door(cell_x, cell_y):
+                if tile in DOOR_TILES and not self.is_passable_door(cell_x, cell_y):
                     if self._collides_wall_rect(x, y, cell_x, cell_y, radius_squared):
                         return False
         return True

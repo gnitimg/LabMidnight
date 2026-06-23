@@ -202,19 +202,23 @@ class Game:
         if self.state != STATE_PLAYING:
             return
         self._handle_continuous_input(dt)
+        self.game_map.update_doors(dt)
         self._update_player_state(dt)
         self._update_story_triggers()
 
     def _handle_continuous_input(self, dt: float) -> None:
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_a]:
-            self.player.rotate(-1.0, dt)
-        if keys[pygame.K_d]:
-            self.player.rotate(1.0, dt)
+        forward = 0.0
+        strafe = 0.0
         if keys[pygame.K_w]:
-            self.player.move(1.0, dt, self.game_map)
+            forward += 1.0
         if keys[pygame.K_s]:
-            self.player.move(-1.0, dt, self.game_map)
+            forward -= 1.0
+        if keys[pygame.K_d]:
+            strafe += 1.0
+        if keys[pygame.K_a]:
+            strafe -= 1.0
+        self.player.move_vector(forward, strafe, dt, self.game_map)
 
     def _update_player_state(self, dt: float) -> None:
         player = self.player
