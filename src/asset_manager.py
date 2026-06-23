@@ -8,11 +8,10 @@ import pygame
 
 from .settings import (
     TILE_CLASSROOM_DOOR,
-    TILE_DOOR,
     TILE_EXIT_DOOR,
+    TILE_GUARD_DOOR,
     TILE_LAB_DOOR,
     TILE_POWER_DOOR,
-    TILE_SERVER_DOOR,
     TILE_WALL,
 )
 
@@ -27,16 +26,14 @@ TEXTURE_DOOR = "door"
 TEXTURE_DOOR_LAB = "door_lab"
 TEXTURE_DOOR_CLASSROOM = "door_classroom"
 TEXTURE_DOOR_POWER = "door_power"
-TEXTURE_DOOR_SERVER = "door_server"
 TEXTURE_DOOR_EXIT = "door_exit"
 
 TILE_TEXTURES = {
     TILE_WALL: TEXTURE_WALL,
-    TILE_DOOR: TEXTURE_DOOR,
+    TILE_GUARD_DOOR: TEXTURE_DOOR,
     TILE_LAB_DOOR: TEXTURE_DOOR_LAB,
     TILE_CLASSROOM_DOOR: TEXTURE_DOOR_CLASSROOM,
     TILE_POWER_DOOR: TEXTURE_DOOR_POWER,
-    TILE_SERVER_DOOR: TEXTURE_DOOR_SERVER,
     TILE_EXIT_DOOR: TEXTURE_DOOR_EXIT,
 }
 
@@ -56,7 +53,6 @@ class TextureStore:
             TEXTURE_DOOR_LAB,
             TEXTURE_DOOR_CLASSROOM,
             TEXTURE_DOOR_POWER,
-            TEXTURE_DOOR_SERVER,
             TEXTURE_DOOR_EXIT,
         }
         for name in names:
@@ -81,4 +77,3 @@ class TextureStore:
     def for_tile(self, tile: int) -> pygame.Surface | None:
         name = TILE_TEXTURES.get(tile, TEXTURE_WALL)
         return self.get(name) or self.get(TEXTURE_DOOR if "door" in name else TEXTURE_WALL)
-

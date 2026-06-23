@@ -11,11 +11,10 @@
 | `ceiling.png` | 天花板单位纹理，按透视循环采样 |
 | `floor.png` | 地面单位纹理，按透视循环采样，近大远小 |
 | `wall.png` | 默认墙壁纹理 |
-| `door.png` | 默认门纹理 |
-| `door_lab.png` | 实验室门纹理 |
-| `door_classroom.png` | 异常教室门纹理 |
+| `door.png` | 门卫处门纹理，也是缺省门纹理 |
+| `door_lab.png` | 实验室门 / 机房门纹理 |
+| `door_classroom.png` | 教室门纹理 |
 | `door_power.png` | 配电室门纹理 |
-| `door_server.png` | 机房门纹理 |
 | `door_exit.png` | 出口门纹理 |
 
 ## 音效

@@ -9,11 +9,10 @@ from .settings import (
     DOOR_TILES,
     INTERACT_DISTANCE,
     TILE_CLASSROOM_DOOR,
-    TILE_DOOR,
     TILE_EXIT_DOOR,
+    TILE_GUARD_DOOR,
     TILE_LAB_DOOR,
     TILE_POWER_DOOR,
-    TILE_SERVER_DOOR,
 )
 
 
@@ -40,14 +39,23 @@ class InteractionSystem:
         target = self.focused_target(player)
         if target is None:
             return ""
-        kind, _cell, payload = target
+        kind, cell, payload = target
         if kind == "object":
             return payload.prompt
         tile = payload
+        role = self.game_map.door_role_at(*cell)
         if tile == TILE_EXIT_DOOR:
             return "按 Space 使用门禁"
         if tile == TILE_POWER_DOOR:
             return "按 Space 检查配电室门"
+        if role == "server":
+            return "按 Space 检查机房门"
+        if role == "lab":
+            return "按 Space 开实验室门"
+        if role == "classroom":
+            return "按 Space 开教室门"
+        if role == "guard":
+            return "按 Space 开门卫处门"
         return "按 Space 开门"
 
     def interact(self, game) -> str:
@@ -64,12 +72,21 @@ class InteractionSystem:
     def _interact_door(self, game, cell: tuple[int, int], tile: int) -> str:
         player = game.player
         x, y = cell
-        if tile == TILE_DOOR:
+        role = self.game_map.door_role_at(x, y)
+
+        if tile == TILE_GUARD_DOOR:
             self.game_map.open_door(x, y)
             game.audio.play("door_open")
-            return "门轴轻轻响了一声。"
+            return "门卫处门开了。"
 
         if tile == TILE_LAB_DOOR:
+            if role == "server":
+                if not player.flags.get("power_restored", False):
+                    game.audio.play("error")
+                    return "机房门禁没有反应，电力尚未恢复。"
+                self.game_map.open_door(x, y)
+                game.audio.play("door_open")
+                return "机房门禁亮了一下，门开了。"
             if not player.has_item("lab_key"):
                 game.audio.play("error")
                 return "门被锁住了。钥匙应该还在实验室里。"
@@ -93,14 +110,6 @@ class InteractionSystem:
             self.game_map.open_door(x, y)
             game.audio.play("door_open")
             return "黑板上的数字对上了。配电室门锁弹开。"
-
-        if tile == TILE_SERVER_DOOR:
-            if not player.flags.get("power_restored", False):
-                game.audio.play("error")
-                return "机房门禁没有反应，电力尚未恢复。"
-            self.game_map.open_door(x, y)
-            game.audio.play("door_open")
-            return "机房门禁亮了一下，门开了。"
 
         if tile == TILE_EXIT_DOOR:
             if not player.flags.get("power_restored", False):

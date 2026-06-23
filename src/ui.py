@@ -105,7 +105,7 @@ class UI:
 
         flashlight = "开" if player.flashlight_on and player.flashlight_power > 0 else "关"
         self.draw_text(surface, f"手电：{flashlight}", (18, 102), 19, COLOR_MUTED)
-        self.draw_text(surface, "W/S 移动  鼠标视角  Space/左键交互  右键手电  B 背包  F2画质  ESC 暂停", (18, SCREEN_HEIGHT - 32), 18, COLOR_MUTED)
+        self.draw_text(surface, "W/S 前后  A/D 左右移动  鼠标视角  Space/左键交互  右键手电  B 背包  F2画质  ESC 暂停", (18, SCREEN_HEIGHT - 32), 18, COLOR_MUTED)
 
         cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
         pygame.draw.line(surface, (205, 218, 205), (cx - 6, cy), (cx + 6, cy), 1)
@@ -143,7 +143,8 @@ class UI:
             lines = [
                 "操作说明",
                 "W/S：前进/后退",
-                "A/D 或鼠标移动：向左/向右转向",
+                "A/D：向左/向右移动",
+                "鼠标移动：移动视角",
                 "Space 或鼠标左键：交互、拾取、确认",
                 "鼠标右键：开关手电筒",
                 "B 或 I：背包",
@@ -151,11 +152,11 @@ class UI:
                 "ESC：暂停或返回",
                 "按 ESC 返回主菜单",
             ]
-            top = 248
+            top = 228
             for index, line in enumerate(lines):
                 size = 28 if index == 0 else 22
                 color = COLOR_WARNING if index == 0 else COLOR_TEXT
-                self.draw_text(surface, line, (SCREEN_WIDTH // 2, top + index * 32), size, color, center=True)
+                self.draw_text(surface, line, (SCREEN_WIDTH // 2, top + index * 30), size, color, center=True)
             return
 
         options = ["开始游戏", "操作说明", "退出游戏"]

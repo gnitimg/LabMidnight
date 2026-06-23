@@ -56,9 +56,18 @@ class Player:
         self.pitch_offset += delta
 
     def move(self, direction: float, dt: float, game_map) -> None:
-        distance = direction * self.speed * dt
-        dx = math.cos(self.angle) * distance
-        dy = math.sin(self.angle) * distance
+        self.move_vector(direction, 0.0, dt, game_map)
+
+    def move_vector(self, forward: float, strafe: float, dt: float, game_map) -> None:
+        length = math.hypot(forward, strafe)
+        if length <= 0:
+            return
+
+        forward /= length
+        strafe /= length
+        distance = self.speed * dt
+        dx = (math.cos(self.angle) * forward - math.sin(self.angle) * strafe) * distance
+        dy = (math.sin(self.angle) * forward + math.cos(self.angle) * strafe) * distance
 
         next_x = self.x + dx
         if game_map.can_move_to(next_x, self.y):
