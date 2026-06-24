@@ -1,0 +1,7 @@
+{
+  "initial_player": {
+    "hp": 100,
+    "sanity": 100,
+    "flashlight_power": 86
+  }
+}

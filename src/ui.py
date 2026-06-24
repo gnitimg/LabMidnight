@@ -98,13 +98,14 @@ class UI:
         surface.blit(rendered, rect)
         return rect
 
-    def draw_hud(self, surface: pygame.Surface, player, message: str, prompt: str) -> None:
+    def draw_hud(self, surface: pygame.Surface, player, message: str, prompt: str, floor: int = 4) -> None:
         self._draw_bar(surface, 18, 16, "HP", player.hp, 100, (91, 153, 112))
         self._draw_bar(surface, 18, 44, "SAN", player.sanity, 100, (92, 143, 190))
         self._draw_bar(surface, 18, 72, "电量", player.flashlight_power, 100, (216, 184, 92))
 
         flashlight = "开" if player.flashlight_on and player.flashlight_power > 0 else "关"
         self.draw_text(surface, f"手电：{flashlight}", (18, 102), 19, COLOR_MUTED)
+        self.draw_text(surface, f"{floor}F", (SCREEN_WIDTH - 58, 18), 25, COLOR_WARNING, bold=True)
         self.draw_text(surface, "W/S 前后  A/D 左右移动  鼠标视角  Space/左键交互  右键手电  B 背包  F2画质  ESC 暂停", (18, SCREEN_HEIGHT - 32), 18, COLOR_MUTED)
 
         cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
@@ -173,6 +174,25 @@ class UI:
         self.draw_text(surface, "ESC 继续游戏", (SCREEN_WIDTH // 2, 258), 25, COLOR_TEXT, center=True)
         self.draw_text(surface, "R 重新开始", (SCREEN_WIDTH // 2, 300), 25, COLOR_TEXT, center=True)
         self.draw_text(surface, "Q 回到主菜单", (SCREEN_WIDTH // 2, 342), 25, COLOR_TEXT, center=True)
+
+    def draw_floor_confirm(self, surface: pygame.Surface, selected: int) -> None:
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 235))
+        surface.blit(overlay, (0, 0))
+        panel = pygame.Rect(SCREEN_WIDTH // 2 - 220, SCREEN_HEIGHT // 2 - 116, 440, 232)
+        pygame.draw.rect(surface, COLOR_PANEL, panel, border_radius=8)
+        pygame.draw.rect(surface, COLOR_PANEL_EDGE, panel, 1, border_radius=8)
+        self.draw_text(surface, "下了楼，就回不来了哦", (SCREEN_WIDTH // 2, panel.y + 58), 30, COLOR_WARNING, bold=True, center=True)
+
+        options = [("走吧", panel.x + 72), ("等等", panel.x + 250)]
+        for index, (label, x) in enumerate(options):
+            rect = pygame.Rect(x, panel.y + 128, 118, 42)
+            fill = (48, 58, 58) if index == selected else (22, 28, 29)
+            pygame.draw.rect(surface, fill, rect, border_radius=5)
+            pygame.draw.rect(surface, COLOR_WARNING if index == selected else COLOR_PANEL_EDGE, rect, 1, border_radius=5)
+            self.draw_text(surface, label, rect.center, 24, COLOR_TEXT if index != selected else COLOR_WARNING, bold=index == selected, center=True)
+
+        self.draw_text(surface, "A/D 或方向键选择，Enter 确认", (SCREEN_WIDTH // 2, panel.bottom - 28), 18, COLOR_MUTED, center=True)
 
     def draw_inventory(self, surface: pygame.Surface, player) -> None:
         self._overlay(surface, 195)

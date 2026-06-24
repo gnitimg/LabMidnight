@@ -9,10 +9,12 @@ import pygame
 
 from .audio_manager import AudioManager
 from .interaction import InteractionSystem
-from .map_data import GameMap
+from .map_data import GameMap, load_initial_player_config
 from .player import Player
 from .renderer import RaycastingRenderer
 from .settings import (
+    BUILDING_BOTTOM_FLOOR,
+    BUILDING_TOP_FLOOR,
     COLOR_BLACK,
     FPS,
     MOUSE_PITCH_SENSITIVITY,
@@ -22,6 +24,7 @@ from .settings import (
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     STATE_FAILURE,
+    STATE_FLOOR_CONFIRM,
     STATE_INVENTORY,
     STATE_MENU,
     STATE_PAUSED,
@@ -49,19 +52,33 @@ class Game:
         self.message = ""
         self.message_until = 0.0
         self.low_sanity_warned = False
+        self.current_floor = BUILDING_TOP_FLOOR
+        self.pending_floor = BUILDING_TOP_FLOOR - 1
+        self.floor_choice_selected = 0
         self.new_game()
         self.set_mouse_capture(False)
 
     def new_game(self) -> None:
-        self.game_map = GameMap()
+        self.current_floor = BUILDING_TOP_FLOOR
+        self.game_map = GameMap(self.current_floor)
         start_x, start_y = self.game_map.start_position
-        self.player = Player(x=start_x, y=start_y)
-        self.renderer = RaycastingRenderer(self.screen, self.game_map)
-        self.interaction = InteractionSystem(self.game_map)
+        initial = load_initial_player_config()
+        self.player = Player(
+            x=start_x,
+            y=start_y,
+            hp=int(initial["hp"]),
+            sanity=initial["sanity"],
+            flashlight_power=initial["flashlight_power"],
+        )
+        self._bind_floor_systems()
         self.started_at = time.monotonic()
         self.message = "我怎么睡着了……已经两点了，得回寝室了。"
         self.message_until = time.monotonic() + 5.0
         self.low_sanity_warned = False
+
+    def _bind_floor_systems(self) -> None:
+        self.renderer = RaycastingRenderer(self.screen, self.game_map)
+        self.interaction = InteractionSystem(self.game_map)
 
     def run(self) -> None:
         while self.running:
@@ -81,7 +98,7 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 self._handle_keydown(event.key)
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                self._handle_mouse(event.button)
+                self._handle_mouse(event.button, event.pos)
             elif event.type == pygame.MOUSEMOTION:
                 self._handle_mouse_motion(event.rel)
 
@@ -100,6 +117,9 @@ class Game:
                 self.set_message(f"渲染质量：{names.get(quality, quality)}", 1.8)
             elif key == pygame.K_SPACE:
                 self.set_message(self.interaction.interact(self), 4.0)
+            return
+        if self.state == STATE_FLOOR_CONFIRM:
+            self._handle_floor_confirm_key(key)
             return
         if self.state == STATE_PAUSED:
             if key == pygame.K_ESCAPE:
@@ -128,6 +148,15 @@ class Game:
                 self.audio.stop_all()
                 self.set_state(STATE_MENU)
 
+    def _handle_floor_confirm_key(self, key: int) -> None:
+        if key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_a, pygame.K_d, pygame.K_UP, pygame.K_DOWN):
+            self.floor_choice_selected = 1 - self.floor_choice_selected
+        elif key in (pygame.K_RETURN, pygame.K_SPACE):
+            self._confirm_floor_choice()
+        elif key == pygame.K_ESCAPE:
+            self.floor_choice_selected = 1
+            self._confirm_floor_choice()
+
     def _handle_menu_key(self, key: int) -> None:
         if self.show_instructions:
             if key == pygame.K_ESCAPE:
@@ -142,7 +171,12 @@ class Game:
         elif key == pygame.K_ESCAPE:
             self.running = False
 
-    def _handle_mouse(self, button: int) -> None:
+    def _handle_mouse(self, button: int, pos: tuple[int, int]) -> None:
+        if self.state == STATE_FLOOR_CONFIRM:
+            if button == 1:
+                self.floor_choice_selected = 0 if pos[0] < SCREEN_WIDTH // 2 else 1
+                self._confirm_floor_choice()
+            return
         if self.state == STATE_PLAYING:
             if button == 1:
                 self.set_message(self.interaction.interact(self), 4.0)
@@ -197,6 +231,33 @@ class Game:
         self.player.flashlight_on = not self.player.flashlight_on
         state = "打开" if self.player.flashlight_on else "关闭"
         self.set_message(f"手电已{state}。", 1.6)
+
+    def open_floor_exit_prompt(self) -> None:
+        self.pending_floor = max(BUILDING_BOTTOM_FLOOR, self.current_floor - 1)
+        self.floor_choice_selected = 0
+        self.set_state(STATE_FLOOR_CONFIRM)
+
+    def _confirm_floor_choice(self) -> None:
+        if self.floor_choice_selected == 0:
+            self.descend_floor()
+        else:
+            self.set_state(STATE_PLAYING)
+            self.set_message("你停在安全出口前。", 2.0)
+
+    def descend_floor(self) -> None:
+        if self.current_floor <= BUILDING_BOTTOM_FLOOR:
+            self.set_state(STATE_PLAYING)
+            return
+        self.current_floor = max(BUILDING_BOTTOM_FLOOR, self.pending_floor)
+        self.game_map = GameMap(self.current_floor)
+        x, y, angle = self.game_map.exit_spawn_pose()
+        self.player.x = x
+        self.player.y = y
+        self.player.angle = angle
+        self.player.pitch_offset = 0.0
+        self._bind_floor_systems()
+        self.set_state(STATE_PLAYING)
+        self.set_message(f"你下到了 {self.current_floor} 层。", 3.0)
 
     def update(self, dt: float) -> None:
         if self.state != STATE_PLAYING:
@@ -281,16 +342,18 @@ class Game:
     def draw(self) -> None:
         if self.state == STATE_MENU:
             self.ui.draw_menu(self.screen, self.menu_selected, self.show_instructions)
-        elif self.state in (STATE_PLAYING, STATE_PAUSED, STATE_INVENTORY):
+        elif self.state in (STATE_PLAYING, STATE_PAUSED, STATE_INVENTORY, STATE_FLOOR_CONFIRM):
             elapsed = time.monotonic() - self.started_at
             self.renderer.render(self.player, elapsed)
             self.renderer.draw_dark_overlay(self.player)
             prompt = self.interaction.prompt_for(self.player) if self.state == STATE_PLAYING else ""
-            self.ui.draw_hud(self.screen, self.player, self.current_message(), prompt)
+            self.ui.draw_hud(self.screen, self.player, self.current_message(), prompt, self.current_floor)
             if self.state == STATE_PAUSED:
                 self.ui.draw_pause(self.screen)
             elif self.state == STATE_INVENTORY:
                 self.ui.draw_inventory(self.screen, self.player)
+            elif self.state == STATE_FLOOR_CONFIRM:
+                self.ui.draw_floor_confirm(self.screen, self.floor_choice_selected)
         elif self.state == STATE_SUCCESS:
             self.ui.draw_ending(self.screen, True)
         elif self.state == STATE_FAILURE:

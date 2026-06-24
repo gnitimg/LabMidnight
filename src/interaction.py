@@ -30,7 +30,7 @@ class InteractionSystem:
             if obj is not None:
                 return ("object", cell, obj)
             tile = self.game_map.tile_at(*cell)
-            if tile in DOOR_TILES and not self.game_map.is_open_door(*cell):
+            if tile in DOOR_TILES and (not self.game_map.is_open_door(*cell) or tile == TILE_EXIT_DOOR):
                 return ("door", cell, tile)
             distance += 0.08
         return None
@@ -45,6 +45,8 @@ class InteractionSystem:
         tile = payload
         role = self.game_map.door_role_at(*cell)
         if tile == TILE_EXIT_DOOR:
+            if self.game_map.floor > 1:
+                return "按 Space 进入安全出口"
             return "按 Space 使用门禁"
         if tile == TILE_POWER_DOOR:
             return "按 Space 检查配电室门"
@@ -112,6 +114,12 @@ class InteractionSystem:
             return "黑板上的数字对上了。配电室门锁弹开。"
 
         if tile == TILE_EXIT_DOOR:
+            if game.current_floor > 1:
+                self.game_map.open_door(x, y)
+                player.flags["safety_exit_opened"] = True
+                game.audio.play("door_open")
+                game.open_floor_exit_prompt()
+                return ""
             if not player.flags.get("power_restored", False):
                 game.audio.play("error")
                 return "出口门禁没有反应，电力尚未恢复。"

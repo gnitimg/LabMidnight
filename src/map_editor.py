@@ -15,8 +15,10 @@ from typing import Iterable
 import pygame
 
 
-MAP_LAYOUT_PATH = Path("data/map_layout.txt")
-ROOM_META_PATH = Path("data/map_rooms.json")
+LEGACY_MAP_LAYOUT_PATH = Path("data/map_layout.txt")
+LEGACY_ROOM_META_PATH = Path("data/map_rooms.json")
+FLOOR_MAP_DIR = Path("data/floors")
+MAP_CONFIG_PATH = Path("data/map_config.json")
 
 WINDOW_WIDTH = 1280
 WINDOW_HEIGHT = 760
@@ -24,9 +26,15 @@ TOOLBAR_WIDTH = 220
 PANEL_WIDTH = 300
 STATUS_HEIGHT = 34
 CELL_SIZE = 20
+H_SCROLLBAR_HEIGHT = 18
+H_SCROLLBAR_MIN_THUMB_WIDTH = 36
 MIN_ROOM_SIZE = 3
 DEFAULT_GRID_WIDTH = 40
 DEFAULT_GRID_HEIGHT = 24
+MIN_GRID_WIDTH = 12
+MIN_GRID_HEIGHT = 12
+BOTTOM_FLOOR = 1
+TOP_FLOOR = 4
 
 COLOR_BG = (18, 22, 24)
 COLOR_TOOLBAR = (28, 34, 37)
@@ -35,6 +43,7 @@ COLOR_PANEL_EDGE = (74, 90, 92)
 COLOR_TEXT = (224, 231, 225)
 COLOR_MUTED = (146, 156, 150)
 COLOR_ACCENT = (221, 178, 76)
+COLOR_WARNING = COLOR_ACCENT
 COLOR_GRID = (42, 49, 51)
 COLOR_FLOOR = (47, 52, 51)
 COLOR_WALL = (164, 169, 164)
@@ -52,6 +61,46 @@ DOOR_SYMBOLS = {
     "P": ("Power", (150, 135, 63)),
     "E": ("Exit", (166, 69, 64)),
 }
+
+OBJECT_LABELS = {
+    "1": "Lab Desk",
+    "2": "Blackboard",
+    "3": "Lectern",
+    "4": "Guard Desk",
+    "5": "Fuse Cabinet",
+    "6": "Battery",
+    "7": "Power Box",
+    "8": "Server Terminal",
+    "9": "Exit Panel",
+}
+
+NUMERIC_FIELDS = {"grid_width", "grid_height", "initial_hp", "initial_sanity", "initial_battery"}
+
+
+def floor_layout_path(floor: int) -> Path:
+    return FLOOR_MAP_DIR / f"floor_{floor}.txt"
+
+
+def floor_room_meta_path(floor: int) -> Path:
+    return FLOOR_MAP_DIR / f"floor_{floor}_rooms.json"
+
+
+def existing_layout_path_for_floor(floor: int) -> Path:
+    path = floor_layout_path(floor)
+    if path.exists():
+        return path
+    if floor == TOP_FLOOR and LEGACY_MAP_LAYOUT_PATH.exists():
+        return LEGACY_MAP_LAYOUT_PATH
+    return path
+
+
+def existing_room_meta_path_for_floor(floor: int) -> Path:
+    path = floor_room_meta_path(floor)
+    if path.exists():
+        return path
+    if floor == TOP_FLOOR and LEGACY_ROOM_META_PATH.exists():
+        return LEGACY_ROOM_META_PATH
+    return path
 
 
 @dataclass
@@ -73,9 +122,13 @@ class Room:
 
 
 class MapEditorState:
-    def __init__(self) -> None:
+    def __init__(self, floor: int = TOP_FLOOR) -> None:
+        self.floor = max(BOTTOM_FLOOR, min(TOP_FLOOR, floor))
         self.grid_width = DEFAULT_GRID_WIDTH
         self.grid_height = DEFAULT_GRID_HEIGHT
+        self.initial_hp = 100
+        self.initial_sanity = 100
+        self.initial_battery = 86
         self.rooms: list[Room] = []
         self.doors: dict[tuple[int, int], str] = {}
         self.objects: dict[tuple[int, int], str] = {}
@@ -87,26 +140,28 @@ class MapEditorState:
         self.selected_object: tuple[int, int] | None = None
         self.next_room_id = 1
         self.status = ""
+        self._load_initial_config()
         self.rebuild_grid()
 
     @classmethod
-    def load(cls) -> "MapEditorState":
-        state = cls()
-        if not MAP_LAYOUT_PATH.exists():
-            state.status = "No map_layout.txt found; started with an empty grid."
+    def load(cls, floor: int = TOP_FLOOR) -> "MapEditorState":
+        state = cls(floor)
+        layout_path = existing_layout_path_for_floor(state.floor)
+        if not layout_path.exists():
+            state.status = f"No map for floor {state.floor}; started with an empty grid."
             return state
 
         rows = [
             line.rstrip("\n")
-            for line in MAP_LAYOUT_PATH.read_text(encoding="utf-8").splitlines()
+            for line in layout_path.read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.lstrip().startswith(";")
         ]
         if not rows:
-            state.status = "map_layout.txt is empty; started with an empty grid."
+            state.status = f"Floor {state.floor} map is empty; started with an empty grid."
             return state
 
-        state.grid_width = max(DEFAULT_GRID_WIDTH, max(len(row) for row in rows))
-        state.grid_height = max(DEFAULT_GRID_HEIGHT, len(rows))
+        state.grid_width = max(MIN_GRID_WIDTH, max(len(row) for row in rows))
+        state.grid_height = max(MIN_GRID_HEIGHT, len(rows))
         padded = [row.ljust(state.grid_width, "#") for row in rows]
         state.doors.clear()
         state.objects.clear()
@@ -128,14 +183,35 @@ class MapEditorState:
         state.overrides = state._load_overrides()
         state.next_room_id = 1 + max((room.room_id for room in state.rooms), default=0)
         state.rebuild_grid()
-        state.status = "Loaded data/map_layout.txt."
+        state.status = f"Loaded floor {state.floor}: {layout_path}."
         return state
 
+    def _load_initial_config(self) -> None:
+        if not MAP_CONFIG_PATH.exists():
+            return
+        try:
+            payload = json.loads(MAP_CONFIG_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        initial = payload.get("initial_player", {})
+        if not isinstance(initial, dict):
+            return
+        self.initial_hp = self._read_int(initial, "hp", self.initial_hp)
+        self.initial_sanity = self._read_int(initial, "sanity", self.initial_sanity)
+        self.initial_battery = self._read_int(initial, "flashlight_power", self.initial_battery)
+
+    def _read_int(self, payload: dict, key: str, fallback: int) -> int:
+        try:
+            return max(0, int(float(payload.get(key, fallback))))
+        except (TypeError, ValueError):
+            return fallback
+
     def _load_room_metadata(self) -> list[Room]:
-        if not ROOM_META_PATH.exists():
+        meta_path = existing_room_meta_path_for_floor(self.floor)
+        if not meta_path.exists():
             return []
         try:
-            payload = json.loads(ROOM_META_PATH.read_text(encoding="utf-8"))
+            payload = json.loads(meta_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return []
         rooms: list[Room] = []
@@ -156,10 +232,11 @@ class MapEditorState:
         return rooms
 
     def _load_overrides(self) -> dict[tuple[int, int], str]:
-        if not ROOM_META_PATH.exists():
+        meta_path = existing_room_meta_path_for_floor(self.floor)
+        if not meta_path.exists():
             return {}
         try:
-            payload = json.loads(ROOM_META_PATH.read_text(encoding="utf-8"))
+            payload = json.loads(meta_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return {}
         overrides: dict[tuple[int, int], str] = {}
@@ -278,6 +355,41 @@ class MapEditorState:
 
     def in_bounds(self, x: int, y: int) -> bool:
         return 0 <= x < self.grid_width and 0 <= y < self.grid_height
+
+    def resize_grid(self, width: int, height: int) -> None:
+        self.grid_width = max(MIN_GRID_WIDTH, int(width))
+        self.grid_height = max(MIN_GRID_HEIGHT, int(height))
+        original_room_count = len(self.rooms)
+        clipped_room_count = 0
+        kept_rooms: list[Room] = []
+        for room in self.rooms:
+            if room.x >= self.grid_width or room.y >= self.grid_height:
+                continue
+            clipped_w = min(room.w, self.grid_width - room.x)
+            clipped_h = min(room.h, self.grid_height - room.y)
+            if clipped_w < MIN_ROOM_SIZE or clipped_h < MIN_ROOM_SIZE:
+                continue
+            if clipped_w != room.w or clipped_h != room.h:
+                clipped_room_count += 1
+                room.w = clipped_w
+                room.h = clipped_h
+            kept_rooms.append(room)
+        self.rooms = kept_rooms
+        if self.selected_room_id is not None and self.selected_room() is None:
+            self.selected_room_id = None
+        self.doors = {cell: symbol for cell, symbol in self.doors.items() if self.in_bounds(*cell)}
+        self.objects = {cell: symbol for cell, symbol in self.objects.items() if self.in_bounds(*cell)}
+        self.overrides = {cell: symbol for cell, symbol in self.overrides.items() if self.in_bounds(*cell)}
+        if self.start_cell is not None and not self.in_bounds(*self.start_cell):
+            self.start_cell = None
+        self.rebuild_grid()
+        removed = original_room_count - len(self.rooms)
+        detail = ""
+        if removed:
+            detail = f" Removed {removed} room(s) outside bounds."
+        elif clipped_room_count:
+            detail = f" Clipped {clipped_room_count} room(s) at bounds."
+        self.status = f"Grid resized to {self.grid_width} x {self.grid_height}.{detail}"
 
     def add_room(self, x1: int, y1: int, x2: int, y2: int) -> Room | None:
         min_x, max_x = sorted((x1, x2))
@@ -407,25 +519,44 @@ class MapEditorState:
         return True
 
     def save(self) -> None:
-        MAP_LAYOUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        ROOM_META_PATH.parent.mkdir(parents=True, exist_ok=True)
+        layout_path = floor_layout_path(self.floor)
+        room_meta_path = floor_room_meta_path(self.floor)
+        layout_path.parent.mkdir(parents=True, exist_ok=True)
         layout = self._layout_text()
-        MAP_LAYOUT_PATH.write_text(layout, encoding="utf-8")
+        layout_path.write_text(layout, encoding="utf-8")
         metadata = {
             "tile_size_cm": 60,
+            "floor": self.floor,
+            "grid_width": self.grid_width,
+            "grid_height": self.grid_height,
             "rooms": [asdict(room) for room in self.rooms],
             "overrides": [
                 {"x": x, "y": y, "symbol": symbol}
                 for (x, y), symbol in sorted(self.overrides.items())
             ],
         }
-        ROOM_META_PATH.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-        self.status = f"Saved {MAP_LAYOUT_PATH} and {ROOM_META_PATH}."
+        room_meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._save_initial_config()
+        if self.floor == TOP_FLOOR:
+            LEGACY_MAP_LAYOUT_PATH.write_text(layout, encoding="utf-8")
+            LEGACY_ROOM_META_PATH.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.status = f"Saved floor {self.floor}."
+
+    def _save_initial_config(self) -> None:
+        MAP_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "initial_player": {
+                "hp": self.initial_hp,
+                "sanity": self.initial_sanity,
+                "flashlight_power": self.initial_battery,
+            }
+        }
+        MAP_CONFIG_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def _layout_text(self) -> str:
         lines = [
             "; LabMidnight editable map layout.",
-            "; Generated by map_editor.py. One character is one 60cm floor tile.",
+            f"; Generated by map_editor.py for floor {self.floor}. One character is one 60cm floor tile.",
             ";",
             "; Terrain: # wall, . floor, @ player start",
             "; Doors: L lab, M machine/server lab-style, C classroom, G guard, P power, E exit",
@@ -445,18 +576,22 @@ class MapEditor:
         self.font = pygame.font.Font(None, 24)
         self.small_font = pygame.font.Font(None, 19)
         self.big_font = pygame.font.Font(None, 30)
-        self.state = MapEditorState.load()
+        self.state = MapEditorState.load(TOP_FLOOR)
         self.running = True
         self.active_tool = "select"
         self.active_door_symbol = "L"
         self.active_object_symbol = "1"
         self.buttons: list[tuple[pygame.Rect, str, str, str | None]] = []
         self.editing_field: str | None = None
+        self.edit_buffer = ""
         self.drag_mode: str | None = None
         self.drag_start_cell: tuple[int, int] | None = None
         self.drag_current_cell: tuple[int, int] | None = None
         self.drag_initial_room: tuple[int, int, int, int] | None = None
         self.hover_cell: tuple[int, int] | None = None
+        self.panel_fields: dict[str, pygame.Rect] = {}
+        self.floor_buttons: dict[int, pygame.Rect] = {}
+        self.scrollbar_drag_offset = 0
         self.scroll_x = 0
         self.scroll_y = 0
         self._build_buttons()
@@ -471,6 +606,11 @@ class MapEditor:
     @property
     def canvas_rect(self) -> pygame.Rect:
         return pygame.Rect(TOOLBAR_WIDTH, 0, WINDOW_WIDTH - TOOLBAR_WIDTH - PANEL_WIDTH, WINDOW_HEIGHT - STATUS_HEIGHT)
+
+    @property
+    def viewport_rect(self) -> pygame.Rect:
+        canvas = self.canvas_rect
+        return pygame.Rect(canvas.x, canvas.y, canvas.width, max(0, canvas.height - H_SCROLLBAR_HEIGHT))
 
     @property
     def panel_rect(self) -> pygame.Rect:
@@ -516,58 +656,158 @@ class MapEditor:
                 self._handle_mouse_motion(event)
 
     def _handle_keydown(self, event: pygame.event.Event) -> None:
+        mods = pygame.key.get_mods()
         if self.editing_field is not None:
+            if event.key == pygame.K_s and mods & pygame.KMOD_CTRL:
+                self._commit_editing_field()
+                self.state.save()
+                return
+            if event.key == pygame.K_l and mods & pygame.KMOD_CTRL:
+                self._cancel_editing_field()
+                self.state = MapEditorState.load(self.state.floor)
+                return
             self._edit_text(event)
             return
 
-        mods = pygame.key.get_mods()
         if event.key == pygame.K_ESCAPE:
             self.state.selected_room_id = None
             self.state.selected_door = None
             self.state.selected_object = None
             self.drag_mode = None
-            self.editing_field = None
+            self._cancel_editing_field()
         elif event.key == pygame.K_DELETE:
             self.state.delete_selection()
         elif event.key == pygame.K_s and mods & pygame.KMOD_CTRL:
             self.state.save()
         elif event.key == pygame.K_l and mods & pygame.KMOD_CTRL:
-            self.state = MapEditorState.load()
+            self.state = MapEditorState.load(self.state.floor)
         elif event.unicode in "123456789":
             self.active_object_symbol = event.unicode
             if self.active_tool == "object":
                 self.state.status = f"Object tool uses symbol {self.active_object_symbol}."
 
     def _edit_text(self, event: pygame.event.Event) -> None:
+        if self.editing_field in NUMERIC_FIELDS:
+            self._edit_number(event)
+            return
+
+        room = self.state.selected_room()
+        if room is None or self.editing_field is None:
+            self._cancel_editing_field()
+            return
+        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            self._commit_editing_field()
+            return
+        if event.key == pygame.K_ESCAPE:
+            self._cancel_editing_field()
+            return
+        if event.key == pygame.K_BACKSPACE:
+            self.edit_buffer = self.edit_buffer[:-1]
+            return
+        typed = getattr(event, "unicode", "")
+        if typed and typed.isprintable():
+            limit = 32 if self.editing_field == "name" else 16
+            self.edit_buffer = (self.edit_buffer + typed)[:limit]
+
+    def _edit_number(self, event: pygame.event.Event) -> None:
+        if self.editing_field is None:
+            return
+        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            self._commit_editing_field()
+            return
+        if event.key == pygame.K_ESCAPE:
+            self._cancel_editing_field()
+            return
+
+        if event.key == pygame.K_BACKSPACE:
+            self.edit_buffer = self.edit_buffer[:-1]
+            return
+
+        typed = getattr(event, "unicode", "")
+        if typed and typed.isdigit():
+            max_digits = 4 if self.editing_field in {"grid_width", "grid_height"} else 3
+            if len(self.edit_buffer) < max_digits:
+                self.edit_buffer += typed
+
+    def _begin_editing_field(self, field: str) -> None:
+        if self.editing_field == field:
+            return
+        self._commit_editing_field()
+        if field in {"name", "number"} and self.state.selected_room() is None:
+            return
+        self.editing_field = field
+        self.edit_buffer = self._editing_field_value(field)
+
+    def _commit_editing_field(self) -> None:
+        field = self.editing_field
+        if field is None:
+            return
+        if field in NUMERIC_FIELDS:
+            value = int(self.edit_buffer) if self.edit_buffer else 0
+            self._set_numeric_field(field, value)
+        else:
+            room = self.state.selected_room()
+            if room is not None:
+                if field == "name":
+                    room.name = self.edit_buffer[:32]
+                elif field == "number":
+                    room.number = self.edit_buffer[:16]
+                self.state.status = "Room metadata updated."
+        self._cancel_editing_field()
+
+    def _cancel_editing_field(self) -> None:
+        self.editing_field = None
+        self.edit_buffer = ""
+
+    def _editing_field_value(self, field: str) -> str:
+        if field in NUMERIC_FIELDS:
+            return self._numeric_field_value(field)
         room = self.state.selected_room()
         if room is None:
-            self.editing_field = None
-            return
-        if event.key in (pygame.K_RETURN, pygame.K_ESCAPE):
-            self.editing_field = None
-            self.state.status = "Room metadata updated."
-            return
-        value = room.name if self.editing_field == "name" else room.number
-        if event.key == pygame.K_BACKSPACE:
-            value = value[:-1]
-        elif event.unicode and event.unicode.isprintable():
-            value += event.unicode
-        if self.editing_field == "name":
-            room.name = value[:32]
-        else:
-            room.number = value[:16]
+            return ""
+        if field == "name":
+            return room.name
+        if field == "number":
+            return room.number
+        return ""
+
+    def _numeric_field_value(self, field: str) -> str:
+        values = {
+            "grid_width": self.state.grid_width,
+            "grid_height": self.state.grid_height,
+            "initial_hp": self.state.initial_hp,
+            "initial_sanity": self.state.initial_sanity,
+            "initial_battery": self.state.initial_battery,
+        }
+        return str(values.get(field, 0))
+
+    def _set_numeric_field(self, field: str, value: int) -> None:
+        if field == "grid_width":
+            self.state.resize_grid(max(MIN_GRID_WIDTH, value), self.state.grid_height)
+        elif field == "grid_height":
+            self.state.resize_grid(self.state.grid_width, max(MIN_GRID_HEIGHT, value))
+        elif field == "initial_hp":
+            self.state.initial_hp = max(0, min(999, value))
+        elif field == "initial_sanity":
+            self.state.initial_sanity = max(0, min(999, value))
+        elif field == "initial_battery":
+            self.state.initial_battery = max(0, min(999, value))
 
     def _handle_mouse_down(self, event: pygame.event.Event) -> None:
         if event.button == 4:
             self.scroll_y = max(0, self.scroll_y - CELL_SIZE)
+            self._clamp_scroll()
             return
         if event.button == 5:
             self.scroll_y += CELL_SIZE
+            self._clamp_scroll()
             return
         if event.button != 1:
             return
 
         pos = event.pos
+        if self.editing_field is not None and not self.panel_rect.collidepoint(pos):
+            self._commit_editing_field()
         button = self._button_at(pos)
         if button is not None:
             _, _, action, payload = button
@@ -577,6 +817,8 @@ class MapEditor:
             return
 
         if self._handle_panel_click(pos):
+            return
+        if self._handle_horizontal_scrollbar_down(pos):
             return
 
         cell = self._cell_from_pos(pos)
@@ -603,10 +845,11 @@ class MapEditor:
 
     def _activate_button(self, action: str, payload: str | None) -> None:
         if action == "command":
+            self._commit_editing_field()
             if payload == "save":
                 self.state.save()
             elif payload == "load":
-                self.state = MapEditorState.load()
+                self.state = MapEditorState.load(self.state.floor)
             return
         self.active_tool = action
         if action == "door" and payload is not None:
@@ -616,20 +859,29 @@ class MapEditor:
     def _handle_panel_click(self, pos: tuple[int, int]) -> bool:
         if not self.panel_rect.collidepoint(pos):
             return False
-        room = self.state.selected_room()
-        if room is None:
-            self.editing_field = None
-            return True
-
-        name_rect = pygame.Rect(self.panel_rect.x + 24, 142, PANEL_WIDTH - 48, 30)
-        number_rect = pygame.Rect(self.panel_rect.x + 24, 206, PANEL_WIDTH - 48, 30)
-        if name_rect.collidepoint(pos):
-            self.editing_field = "name"
-        elif number_rect.collidepoint(pos):
-            self.editing_field = "number"
-        else:
-            self.editing_field = None
+        for floor, rect in self.floor_buttons.items():
+            if rect.collidepoint(pos):
+                self._commit_editing_field()
+                self._switch_floor(floor)
+                return True
+        for field, rect in self.panel_fields.items():
+            if rect.collidepoint(pos):
+                self._begin_editing_field(field)
+                return True
+        self._commit_editing_field()
         return True
+
+    def _switch_floor(self, floor: int) -> None:
+        self._commit_editing_field()
+        floor = max(BOTTOM_FLOOR, min(TOP_FLOOR, floor))
+        if floor == self.state.floor:
+            return
+        self.state.save()
+        self.state = MapEditorState.load(floor)
+        self._cancel_editing_field()
+        self.drag_mode = None
+        self.scroll_x = 0
+        self.scroll_y = 0
 
     def _begin_select_drag(self, cell: tuple[int, int]) -> None:
         if cell in self.state.doors:
@@ -679,9 +931,13 @@ class MapEditor:
 
     def _handle_mouse_motion(self, event: pygame.event.Event) -> None:
         self.hover_cell = self._cell_from_pos(event.pos)
+        if self.drag_mode == "h_scrollbar":
+            self._set_scroll_x_from_thumb(event.pos[0] - self.scrollbar_drag_offset)
+            return
         if event.buttons[1] or event.buttons[2]:
             self.scroll_x = max(0, self.scroll_x - event.rel[0])
             self.scroll_y = max(0, self.scroll_y - event.rel[1])
+            self._clamp_scroll()
             return
         if not event.buttons[0]:
             return
@@ -741,11 +997,63 @@ class MapEditor:
         elif self.active_tool == "object":
             self.state.place_object(cell, self.active_object_symbol)
 
+    def _handle_horizontal_scrollbar_down(self, pos: tuple[int, int]) -> bool:
+        track = self._horizontal_scrollbar_track_rect()
+        if not track.collidepoint(pos) or self._max_scroll_x() <= 0:
+            return False
+        thumb = self._horizontal_scrollbar_thumb_rect()
+        if thumb.collidepoint(pos):
+            self.scrollbar_drag_offset = pos[0] - thumb.x
+        else:
+            self.scrollbar_drag_offset = thumb.width // 2
+            self._set_scroll_x_from_thumb(pos[0] - self.scrollbar_drag_offset)
+        self.drag_mode = "h_scrollbar"
+        return True
+
+    def _horizontal_scrollbar_track_rect(self) -> pygame.Rect:
+        canvas = self.canvas_rect
+        return pygame.Rect(canvas.x + 8, canvas.bottom - H_SCROLLBAR_HEIGHT + 4, canvas.width - 16, H_SCROLLBAR_HEIGHT - 8)
+
+    def _horizontal_scrollbar_thumb_rect(self) -> pygame.Rect:
+        track = self._horizontal_scrollbar_track_rect()
+        content_width = max(1, self.state.grid_width * CELL_SIZE)
+        visible_width = max(1, self.viewport_rect.width)
+        if content_width <= visible_width:
+            return track.copy()
+        thumb_width = max(H_SCROLLBAR_MIN_THUMB_WIDTH, int(track.width * visible_width / content_width))
+        thumb_width = min(track.width, thumb_width)
+        travel = max(1, track.width - thumb_width)
+        thumb_x = track.x + int((self.scroll_x / self._max_scroll_x()) * travel)
+        return pygame.Rect(thumb_x, track.y, thumb_width, track.height)
+
+    def _set_scroll_x_from_thumb(self, thumb_left: int) -> None:
+        max_scroll = self._max_scroll_x()
+        if max_scroll <= 0:
+            self.scroll_x = 0
+            return
+        track = self._horizontal_scrollbar_track_rect()
+        thumb = self._horizontal_scrollbar_thumb_rect()
+        travel = max(1, track.width - thumb.width)
+        clamped_left = max(track.x, min(track.x + travel, thumb_left))
+        self.scroll_x = int(round((clamped_left - track.x) / travel * max_scroll))
+        self._clamp_scroll()
+
+    def _max_scroll_x(self) -> int:
+        return max(0, self.state.grid_width * CELL_SIZE - self.viewport_rect.width)
+
+    def _max_scroll_y(self) -> int:
+        return max(0, self.state.grid_height * CELL_SIZE - self.viewport_rect.height)
+
+    def _clamp_scroll(self) -> None:
+        self.scroll_x = max(0, min(self.scroll_x, self._max_scroll_x()))
+        self.scroll_y = max(0, min(self.scroll_y, self._max_scroll_y()))
+
     def _cell_from_pos(self, pos: tuple[int, int]) -> tuple[int, int] | None:
-        if not self.canvas_rect.collidepoint(pos):
+        viewport = self.viewport_rect
+        if not viewport.collidepoint(pos):
             return None
-        x = (pos[0] - self.canvas_rect.x + self.scroll_x) // CELL_SIZE
-        y = (pos[1] - self.canvas_rect.y + self.scroll_y) // CELL_SIZE
+        x = (pos[0] - viewport.x + self.scroll_x) // CELL_SIZE
+        y = (pos[1] - viewport.y + self.scroll_y) // CELL_SIZE
         if x < 0 or y < 0:
             return None
         if x >= self.state.grid_width or y >= self.state.grid_height:
@@ -753,7 +1061,8 @@ class MapEditor:
         return int(x), int(y)
 
     def _screen_from_cell(self, x: int, y: int) -> tuple[int, int]:
-        return self.canvas_rect.x + x * CELL_SIZE - self.scroll_x, self.canvas_rect.y + y * CELL_SIZE - self.scroll_y
+        viewport = self.viewport_rect
+        return viewport.x + x * CELL_SIZE - self.scroll_x, viewport.y + y * CELL_SIZE - self.scroll_y
 
     def _draw(self) -> None:
         self.screen.fill(COLOR_BG)
@@ -779,6 +1088,7 @@ class MapEditor:
             "Drag Room from toolbar or canvas.",
             "Drag bottom-right handle to resize.",
             "Doors snap to valid wall cells.",
+            "Bottom bar scrolls left/right.",
             "Middle/right drag pans the grid.",
             "Keys: Ctrl+S save, Del delete.",
             "Object tool: press 1-9.",
@@ -790,14 +1100,16 @@ class MapEditor:
 
     def _draw_canvas(self) -> None:
         canvas = self.canvas_rect
+        viewport = self.viewport_rect
+        self._clamp_scroll()
         pygame.draw.rect(self.screen, (14, 17, 18), canvas)
         clip = self.screen.get_clip()
-        self.screen.set_clip(canvas)
+        self.screen.set_clip(viewport)
 
         start_x = max(0, self.scroll_x // CELL_SIZE)
         start_y = max(0, self.scroll_y // CELL_SIZE)
-        end_x = min(self.state.grid_width, start_x + canvas.width // CELL_SIZE + 3)
-        end_y = min(self.state.grid_height, start_y + canvas.height // CELL_SIZE + 3)
+        end_x = min(self.state.grid_width, start_x + viewport.width // CELL_SIZE + 3)
+        end_y = min(self.state.grid_height, start_y + viewport.height // CELL_SIZE + 3)
 
         for y in range(start_y, end_y):
             for x in range(start_x, end_x):
@@ -814,7 +1126,18 @@ class MapEditor:
         self._draw_drag_preview()
         self._draw_door_preview()
         self.screen.set_clip(clip)
+        self._draw_horizontal_scrollbar()
         pygame.draw.rect(self.screen, COLOR_PANEL_EDGE, canvas, 1)
+
+    def _draw_horizontal_scrollbar(self) -> None:
+        track = self._horizontal_scrollbar_track_rect()
+        pygame.draw.rect(self.screen, (19, 24, 26), track.inflate(8, 8), border_radius=4)
+        pygame.draw.rect(self.screen, (45, 54, 56), track, border_radius=4)
+        thumb = self._horizontal_scrollbar_thumb_rect()
+        active = self.drag_mode == "h_scrollbar"
+        thumb_color = COLOR_ACCENT if active else (111, 128, 130)
+        pygame.draw.rect(self.screen, thumb_color, thumb, border_radius=4)
+        pygame.draw.rect(self.screen, COLOR_PANEL_EDGE, track, 1, border_radius=4)
 
     def _cell_color(self, char: str) -> tuple[int, int, int]:
         if char == "#":
@@ -866,40 +1189,77 @@ class MapEditor:
         panel = self.panel_rect
         pygame.draw.rect(self.screen, COLOR_PANEL, panel)
         pygame.draw.rect(self.screen, COLOR_PANEL_EDGE, panel, 1)
+        self.panel_fields.clear()
+        self.floor_buttons.clear()
+
         self._draw_text("Properties", (panel.x + 20, 20), self.big_font, COLOR_TEXT)
-        self._draw_text(f"Tool: {self._tool_label()}", (panel.x + 20, 58), self.font, COLOR_ACCENT)
-        self._draw_text(f"Grid: {self.state.grid_width} x {self.state.grid_height}", (panel.x + 20, 86), self.small_font, COLOR_MUTED)
+        self._draw_text("Floor", (panel.x + 20, 58), self.small_font, COLOR_MUTED)
+        for index, floor in enumerate(range(BOTTOM_FLOOR, TOP_FLOOR + 1)):
+            rect = pygame.Rect(panel.x + 68 + index * 42, 52, 32, 28)
+            self.floor_buttons[floor] = rect
+            active = floor == self.state.floor
+            pygame.draw.rect(self.screen, (54, 64, 65) if active else (31, 38, 40), rect, border_radius=4)
+            pygame.draw.rect(self.screen, COLOR_ACCENT if active else COLOR_PANEL_EDGE, rect, 1, border_radius=4)
+            self._draw_centered_text(str(floor), rect, self.small_font, COLOR_WARNING if active else COLOR_TEXT)
+
+        self._draw_text(f"Tool: {self._tool_label()}", (panel.x + 20, 92), self.font, COLOR_ACCENT)
+        self._draw_number_input("grid_width", "W", self.state.grid_width, pygame.Rect(panel.x + 42, 126, 58, 28))
+        self._draw_number_input("grid_height", "H", self.state.grid_height, pygame.Rect(panel.x + 132, 126, 58, 28))
+        self._draw_number_input("initial_hp", "HP", self.state.initial_hp, pygame.Rect(panel.x + 42, 180, 58, 28))
+        self._draw_number_input("initial_sanity", "SAN", self.state.initial_sanity, pygame.Rect(panel.x + 132, 180, 58, 28))
+        self._draw_number_input("initial_battery", "BAT", self.state.initial_battery, pygame.Rect(panel.x + 222, 180, 58, 28))
 
         room = self.state.selected_room()
         if room is not None:
-            self._draw_text("Selected room", (panel.x + 20, 116), self.font, COLOR_TEXT)
-            self._draw_input("name", room.name, pygame.Rect(panel.x + 24, 142, PANEL_WIDTH - 48, 30))
-            self._draw_input("number", room.number, pygame.Rect(panel.x + 24, 206, PANEL_WIDTH - 48, 30))
-            self._draw_text(f"Pos: {room.x}, {room.y}", (panel.x + 24, 252), self.small_font, COLOR_MUTED)
-            self._draw_text(f"Size: {room.w} x {room.h} tiles", (panel.x + 24, 276), self.small_font, COLOR_MUTED)
-            self._draw_text("Click fields to edit. Enter confirms.", (panel.x + 24, 314), self.small_font, COLOR_MUTED)
-            return
-
-        if self.state.selected_door is not None:
+            self._draw_text("Selected room", (panel.x + 20, 230), self.font, COLOR_TEXT)
+            self._draw_input("name", room.name, pygame.Rect(panel.x + 24, 258, PANEL_WIDTH - 48, 28))
+            self._draw_input("number", room.number, pygame.Rect(panel.x + 24, 322, PANEL_WIDTH - 48, 28))
+            self._draw_text(f"Pos: {room.x}, {room.y}", (panel.x + 24, 362), self.small_font, COLOR_MUTED)
+            self._draw_text(f"Size: {room.w} x {room.h} tiles", (panel.x + 24, 384), self.small_font, COLOR_MUTED)
+        elif self.state.selected_door is not None:
             cell = self.state.selected_door
             symbol = self.state.doors.get(cell, "?")
-            self._draw_text("Selected door", (panel.x + 20, 116), self.font, COLOR_TEXT)
-            self._draw_text(f"Type: {symbol} {DOOR_SYMBOLS.get(symbol, ('Unknown',))[0]}", (panel.x + 24, 148), self.font, COLOR_ACCENT)
-            self._draw_text(f"Cell: {cell[0]}, {cell[1]}", (panel.x + 24, 178), self.small_font, COLOR_MUTED)
-            self._draw_text("Delete removes it.", (panel.x + 24, 214), self.small_font, COLOR_MUTED)
-            return
+            self._draw_text("Selected door", (panel.x + 20, 230), self.font, COLOR_TEXT)
+            self._draw_text(f"Type: {symbol} {DOOR_SYMBOLS.get(symbol, ('Unknown',))[0]}", (panel.x + 24, 262), self.font, COLOR_ACCENT)
+            self._draw_text(f"Cell: {cell[0]}, {cell[1]}", (panel.x + 24, 292), self.small_font, COLOR_MUTED)
+            self._draw_text("Delete removes it.", (panel.x + 24, 326), self.small_font, COLOR_MUTED)
+        elif self.state.selected_object is not None:
+            cell = self.state.selected_object
+            symbol = self.state.objects.get(cell, "?")
+            self._draw_text("Selected object", (panel.x + 20, 230), self.font, COLOR_TEXT)
+            self._draw_text(f"{symbol}: {OBJECT_LABELS.get(symbol, 'Unknown')}", (panel.x + 24, 262), self.font, COLOR_ACCENT)
+            self._draw_text(f"Cell: {cell[0]}, {cell[1]}", (panel.x + 24, 292), self.small_font, COLOR_MUTED)
+        else:
+            self._draw_text("No selection", (panel.x + 20, 230), self.font, COLOR_MUTED)
+            self._draw_text("Create or select a room to edit metadata.", (panel.x + 20, 260), self.small_font, COLOR_MUTED)
 
-        self._draw_text("No selection", (panel.x + 20, 116), self.font, COLOR_MUTED)
-        self._draw_text("Create or select a room to edit metadata.", (panel.x + 20, 146), self.small_font, COLOR_MUTED)
+        self._draw_text("Objects", (panel.x + 20, 440), self.font, COLOR_TEXT)
+        y = 472
+        for symbol, label in OBJECT_LABELS.items():
+            color = COLOR_WARNING if symbol == self.active_object_symbol and self.active_tool == "object" else COLOR_MUTED
+            self._draw_text(f"{symbol}  {label}", (panel.x + 24, y), self.small_font, color)
+            y += 20
+
+    def _draw_number_input(self, field: str, label: str, value: int, rect: pygame.Rect) -> None:
+        self.panel_fields[field] = rect
+        active = self.editing_field == field
+        self._draw_text(label, (rect.x, rect.y - 18), self.small_font, COLOR_MUTED)
+        pygame.draw.rect(self.screen, (35, 43, 45), rect, border_radius=3)
+        pygame.draw.rect(self.screen, COLOR_ACCENT if active else COLOR_PANEL_EDGE, rect, 1, border_radius=3)
+        suffix = "|" if active else ""
+        display = self.edit_buffer if active else str(value)
+        self._draw_text_in_rect(display + suffix, rect.inflate(-12, -4), self.small_font, COLOR_TEXT)
 
     def _draw_input(self, field: str, value: str, rect: pygame.Rect) -> None:
+        self.panel_fields[field] = rect
         label = "Name" if field == "name" else "Number"
         active = self.editing_field == field
         self._draw_text(label, (rect.x, rect.y - 20), self.small_font, COLOR_MUTED)
         pygame.draw.rect(self.screen, (35, 43, 45), rect, border_radius=3)
         pygame.draw.rect(self.screen, COLOR_ACCENT if active else COLOR_PANEL_EDGE, rect, 1, border_radius=3)
         suffix = "|" if active else ""
-        self._draw_text(value + suffix, (rect.x + 8, rect.y + 7), self.small_font, COLOR_TEXT)
+        display = self.edit_buffer if active else value
+        self._draw_text_in_rect(display + suffix, rect.inflate(-14, -4), self.small_font, COLOR_TEXT)
 
     def _draw_status(self) -> None:
         y = WINDOW_HEIGHT - STATUS_HEIGHT
@@ -922,6 +1282,30 @@ class MapEditor:
     def _draw_text(self, text: str, pos: tuple[int, int], font: pygame.font.Font, color: tuple[int, int, int]) -> None:
         surface = font.render(text, True, color)
         self.screen.blit(surface, pos)
+
+    def _draw_text_in_rect(self, text: str, rect: pygame.Rect, font: pygame.font.Font, color: tuple[int, int, int]) -> None:
+        visible_text = self._fit_text_to_width(text, font, rect.width)
+        surface = font.render(visible_text, True, color)
+        pos = (rect.x, rect.y + (rect.height - surface.get_height()) // 2)
+        old_clip = self.screen.get_clip()
+        self.screen.set_clip(rect)
+        self.screen.blit(surface, pos)
+        self.screen.set_clip(old_clip)
+
+    def _fit_text_to_width(self, text: str, font: pygame.font.Font, max_width: int) -> str:
+        if max_width <= 0:
+            return ""
+        if font.size(text)[0] <= max_width:
+            return text
+        prefix = "..."
+        trimmed = text
+        while trimmed and font.size(prefix + trimmed)[0] > max_width:
+            trimmed = trimmed[1:]
+        if trimmed:
+            return prefix + trimmed
+        while prefix and font.size(prefix)[0] > max_width:
+            prefix = prefix[:-1]
+        return prefix
 
     def _draw_centered_text(self, text: str, rect: pygame.Rect, font: pygame.font.Font, color: tuple[int, int, int]) -> None:
         surface = font.render(text, True, color)

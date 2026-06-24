@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import math
 from pathlib import Path
 from typing import Iterable
 
 from .settings import (
+    BUILDING_TOP_FLOOR,
     DOOR_COLLISION_THICKNESS,
     DOOR_OPEN_SPEED,
     DOOR_PASSABLE_PROGRESS,
@@ -23,6 +26,43 @@ from .settings import (
 
 
 MAP_LAYOUT_PATH = Path("data/map_layout.txt")
+FLOOR_MAP_DIR = Path("data/floors")
+MAP_CONFIG_PATH = Path("data/map_config.json")
+
+
+def floor_layout_path(floor: int) -> Path:
+    return FLOOR_MAP_DIR / f"floor_{floor}.txt"
+
+
+def layout_path_for_floor(floor: int) -> Path:
+    floor_path = floor_layout_path(floor)
+    if floor_path.exists():
+        return floor_path
+    if floor == BUILDING_TOP_FLOOR and MAP_LAYOUT_PATH.exists():
+        return MAP_LAYOUT_PATH
+    if MAP_LAYOUT_PATH.exists():
+        return MAP_LAYOUT_PATH
+    return floor_path
+
+
+def load_initial_player_config() -> dict[str, float]:
+    defaults = {"hp": 100.0, "sanity": 100.0, "flashlight_power": 86.0}
+    if not MAP_CONFIG_PATH.exists():
+        return defaults
+    try:
+        payload = json.loads(MAP_CONFIG_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return defaults
+
+    initial = payload.get("initial_player", {})
+    if not isinstance(initial, dict):
+        return defaults
+    for key in defaults:
+        try:
+            defaults[key] = max(0.0, float(initial.get(key, defaults[key])))
+        except (TypeError, ValueError):
+            pass
+    return defaults
 
 
 @dataclass(frozen=True)
@@ -95,7 +135,8 @@ def object_templates() -> dict[str, MapObject]:
 class GameMap:
     """A compact fourth-floor slice of the lab building."""
 
-    def __init__(self) -> None:
+    def __init__(self, floor: int = BUILDING_TOP_FLOOR) -> None:
+        self.floor = floor
         self.width = 34
         self.height = 16
         self.grid = [[TILE_WALL for _ in range(self.width)] for _ in range(self.height)]
@@ -106,8 +147,9 @@ class GameMap:
         self.door_roles: dict[tuple[int, int], str] = {}
         self.door_groups: dict[tuple[int, int], frozenset[tuple[int, int]]] = {}
         self.start_position = (3.0, 3.0)
-        if MAP_LAYOUT_PATH.exists():
-            self._build_from_layout(MAP_LAYOUT_PATH)
+        layout_path = layout_path_for_floor(floor)
+        if layout_path.exists():
+            self._build_from_layout(layout_path)
         else:
             self._build_layout()
         self._index_door_groups()
@@ -335,6 +377,40 @@ class GameMap:
         if north_open and south_open and not (west_open and east_open):
             return "horizontal"
         return "vertical"
+
+    def exit_spawn_pose(self) -> tuple[float, float, float]:
+        exit_cells = [
+            (x, y)
+            for y in range(self.height)
+            for x in range(self.width)
+            if self.tile_at(x, y) == TILE_EXIT_DOOR
+        ]
+        best: tuple[int, int, int, int, int] | None = None
+        for door_x, door_y in exit_cells:
+            for spawn_x, spawn_y in ((door_x + 1, door_y), (door_x - 1, door_y), (door_x, door_y + 1), (door_x, door_y - 1)):
+                if not self._is_spawn_floor(spawn_x, spawn_y):
+                    continue
+                openness = sum(
+                    1
+                    for nx, ny in ((spawn_x + 1, spawn_y), (spawn_x - 1, spawn_y), (spawn_x, spawn_y + 1), (spawn_x, spawn_y - 1))
+                    if self._is_spawn_floor(nx, ny)
+                )
+                candidate = (openness, door_x, door_y, spawn_x, spawn_y)
+                if best is None or candidate > best:
+                    best = candidate
+
+        if best is None:
+            return self.start_position[0], self.start_position[1], 0.0
+
+        _, door_x, door_y, spawn_x, spawn_y = best
+        player_x = spawn_x + 0.5
+        player_y = spawn_y + 0.5
+        angle = math.atan2(player_y - (door_y + 0.5), player_x - (door_x + 0.5)) % math.tau
+        return player_x, player_y, angle
+
+    def _is_spawn_floor(self, x: int, y: int) -> bool:
+        tile = self.tile_at(x, y)
+        return tile != TILE_WALL and tile not in DOOR_TILES
 
     def is_solid_cell(self, x: int, y: int) -> bool:
         tile = self.tile_at(x, y)

@@ -1,0 +1,8 @@
+{
+  "tile_size_cm": 60,
+  "floor": 3,
+  "grid_width": 40,
+  "grid_height": 24,
+  "rooms": [],
+  "overrides": []
+}
