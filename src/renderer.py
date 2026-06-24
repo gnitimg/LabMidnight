@@ -91,18 +91,19 @@ class RaycastingRenderer:
             ceiling_delta = CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS
             top_y = horizon - VERTICAL_PROJECTION * ceiling_delta / corrected
             bottom_y = horizon + VERTICAL_PROJECTION * CAMERA_HEIGHT_UNITS / corrected
-            wall_height = min(SCREEN_HEIGHT * 2.2, bottom_y - top_y)
 
             x = int(ray * SCREEN_WIDTH / NUM_RAYS)
             next_x = int((ray + 1) * SCREEN_WIDTH / NUM_RAYS)
             column_width = max(1, next_x - x)
-            y = int(top_y)
             texture = self.textures.for_tile(tile)
             if texture is not None:
-                self._draw_textured_wall(texture, x, y, column_width, wall_height, hit_x, hit_y, tile, side, cell, texture_offset, corrected, ray_angle, player, elapsed)
+                self._draw_textured_wall(texture, x, column_width, top_y, bottom_y, hit_x, hit_y, tile, side, cell, texture_offset, corrected, ray_angle, player, elapsed)
             else:
-                color = self._shade_color(tile, corrected, ray_angle, player, elapsed)
-                pygame.draw.rect(self.screen, color, (x, y, column_width + 1, int(wall_height)))
+                span = self._visible_wall_span(top_y, bottom_y)
+                if span is not None:
+                    visible_top, visible_height = span
+                    color = self._shade_color(tile, corrected, ray_angle, player, elapsed)
+                    pygame.draw.rect(self.screen, color, (x, visible_top, column_width + 1, visible_height))
 
         self._draw_open_doors(player, elapsed, horizon, depth_buffer)
 
@@ -507,34 +508,46 @@ class RaycastingRenderer:
         depth_buffer: list[float],
     ) -> None:
         x, y = cell
-        if math.hypot(x + 0.5 - player.x, y + 0.5 - player.y) < 0.95:
-            return
+        group = self.game_map.door_group_at(x, y)
+        xs = [gx for gx, _ in group]
+        ys = [gy for _, gy in group]
+        min_x = min(xs)
+        max_x = max(xs)
+        min_y = min(ys)
+        max_y = max(ys)
 
         progress = max(0.0, min(1.0, progress))
         eased = progress * progress * (3.0 - 2.0 * progress)
-        visible_width = max(DOOR_OPEN_REST_WIDTH, 1.0 - (1.0 - DOOR_OPEN_REST_WIDTH) * eased)
         orientation = self.game_map.door_orientation_at(x, y)
 
         if orientation == "horizontal":
+            total_span = max(1.0, max_x - min_x + 1.0)
+            rest_span = min(DOOR_OPEN_REST_WIDTH, total_span)
+            visible_width = max(rest_span, total_span - (total_span - rest_span) * eased)
             direction = self._door_slide_direction(x, y, axis="x")
-            y_plane = float(y) if player.y < y + 0.5 else float(y + 1)
+            y_plane = min_y + 0.5
             if direction >= 0:
-                start = x + 1.0 - visible_width
-                texture_start = 1.0 - visible_width
+                start = min_x + total_span - visible_width
+                texture_start = (total_span - visible_width) / total_span
             else:
-                start = float(x)
+                start = float(min_x)
                 texture_start = 0.0
+            texture_span = visible_width / total_span
             p0 = (start, y_plane)
             p1 = (start + visible_width, y_plane)
         else:
+            total_span = max(1.0, max_y - min_y + 1.0)
+            rest_span = min(DOOR_OPEN_REST_WIDTH, total_span)
+            visible_width = max(rest_span, total_span - (total_span - rest_span) * eased)
             direction = self._door_slide_direction(x, y, axis="y")
-            x_plane = float(x) if player.x < x + 0.5 else float(x + 1)
+            x_plane = min_x + 0.5
             if direction >= 0:
-                start = y + 1.0 - visible_width
-                texture_start = 1.0 - visible_width
+                start = min_y + total_span - visible_width
+                texture_start = (total_span - visible_width) / total_span
             else:
-                start = float(y)
+                start = float(min_y)
                 texture_start = 0.0
+            texture_span = visible_width / total_span
             p0 = (x_plane, start)
             p1 = (x_plane, start + visible_width)
 
@@ -548,21 +561,29 @@ class RaycastingRenderer:
             horizon,
             depth_buffer,
             texture_start=texture_start,
-            texture_span=visible_width,
+            texture_span=texture_span,
         )
 
     def _door_slide_direction(self, x: int, y: int, *, axis: str) -> int:
+        group = self.game_map.door_group_at(x, y)
+        xs = [gx for gx, _ in group]
+        ys = [gy for _, gy in group]
+        min_x = min(xs)
+        max_x = max(xs)
+        min_y = min(ys)
+        max_y = max(ys)
+
         if axis == "x":
-            right_is_wall = self.game_map.tile_at(x + 1, y) == TILE_WALL
-            left_is_wall = self.game_map.tile_at(x - 1, y) == TILE_WALL
+            right_is_wall = any(self.game_map.tile_at(max_x + 1, gy) == TILE_WALL for gy in range(min_y, max_y + 1))
+            left_is_wall = any(self.game_map.tile_at(min_x - 1, gy) == TILE_WALL for gy in range(min_y, max_y + 1))
             if right_is_wall:
                 return 1
             if left_is_wall:
                 return -1
             return 1
 
-        down_is_wall = self.game_map.tile_at(x, y + 1) == TILE_WALL
-        up_is_wall = self.game_map.tile_at(x, y - 1) == TILE_WALL
+        down_is_wall = any(self.game_map.tile_at(gx, max_y + 1) == TILE_WALL for gx in range(min_x, max_x + 1))
+        up_is_wall = any(self.game_map.tile_at(gx, min_y - 1) == TILE_WALL for gx in range(min_x, max_x + 1))
         if down_is_wall:
             return 1
         if up_is_wall:
@@ -628,17 +649,40 @@ class RaycastingRenderer:
 
             top_y = horizon - VERTICAL_PROJECTION * (CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS) / distance
             bottom_y = horizon + VERTICAL_PROJECTION * CAMERA_HEIGHT_UNITS / distance
-            wall_height = min(SCREEN_HEIGHT * 2.2, bottom_y - top_y)
             texture_u = texture_u0 + (texture_u1 - texture_u0) * t
             texture_x = max(0, min(texture_width - 1, int(texture_u * texture_width)))
-            source = pygame.Rect(texture_x, 0, 1, texture_height)
+            slice_info = self._visible_wall_slice(top_y, bottom_y, texture_height)
+            if slice_info is None:
+                continue
+            visible_top, visible_height, source_y, source_height = slice_info
+            source = pygame.Rect(texture_x, source_y, 1, source_height)
             column = texture.subsurface(source)
-            column_height = max(1, int(wall_height))
-            column = pygame.transform.scale(column, (2, column_height))
+            column = pygame.transform.scale(column, (2, visible_height))
             shade = self._shade_factor(distance, player.angle, player, elapsed)
             shade_value = max(0, min(255, int(255 * min(1.0, shade))))
             column.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
-            self.screen.blit(column, (screen_x, int(top_y)))
+            self.screen.blit(column, (screen_x, visible_top))
+
+    def _visible_wall_span(self, top_y: float, bottom_y: float) -> tuple[int, int] | None:
+        if bottom_y <= top_y:
+            return None
+        visible_top = max(0, int(math.floor(top_y)))
+        visible_bottom = min(SCREEN_HEIGHT, int(math.ceil(bottom_y)))
+        if visible_bottom <= visible_top:
+            return None
+        return visible_top, visible_bottom - visible_top
+
+    def _visible_wall_slice(self, top_y: float, bottom_y: float, texture_height: int) -> tuple[int, int, int, int] | None:
+        span = self._visible_wall_span(top_y, bottom_y)
+        if span is None or texture_height <= 0:
+            return None
+        visible_top, visible_height = span
+        full_height = bottom_y - top_y
+        source_top_ratio = (visible_top - top_y) / full_height
+        source_bottom_ratio = (visible_top + visible_height - top_y) / full_height
+        source_y = max(0, min(texture_height - 1, int(source_top_ratio * texture_height)))
+        source_bottom = max(source_y + 1, min(texture_height, int(math.ceil(source_bottom_ratio * texture_height))))
+        return visible_top, visible_height, source_y, source_bottom - source_y
 
     def _camera_space(self, x: float, y: float, player) -> tuple[float, float, float]:
         dx = x - player.x
@@ -651,9 +695,9 @@ class RaycastingRenderer:
         self,
         texture: pygame.Surface,
         x: int,
-        y: int,
         column_width: int,
-        wall_height: float,
+        top_y: float,
+        bottom_y: float,
         hit_x: float,
         hit_y: float,
         tile: int,
@@ -672,10 +716,13 @@ class RaycastingRenderer:
         if texture_offset is None:
             texture_offset = self._texture_offset(hit_x, hit_y, tile, side, cell)
         texture_x = max(0, min(texture_width - 1, int(texture_offset * texture_width)))
-        source = pygame.Rect(texture_x, 0, 1, texture_height)
-        column_height = max(1, int(wall_height))
+        slice_info = self._visible_wall_slice(top_y, bottom_y, texture_height)
+        if slice_info is None:
+            return
+        visible_top, visible_height, source_y, source_height = slice_info
+        source = pygame.Rect(texture_x, source_y, 1, source_height)
         column = texture.subsurface(source)
-        column = pygame.transform.scale(column, (column_width + 1, column_height))
+        column = pygame.transform.scale(column, (column_width + 1, visible_height))
 
         shade = self._shade_factor(distance, ray_angle, player, elapsed)
         shade_value = max(0, min(255, int(255 * min(1.0, shade))))
@@ -684,7 +731,7 @@ class RaycastingRenderer:
             boost = max(0, min(70, int((shade - 1.0) * 85)))
             column.fill((boost, boost, boost), special_flags=pygame.BLEND_RGB_ADD)
 
-        self.screen.blit(column, (x, y))
+        self.screen.blit(column, (x, visible_top))
 
     def _texture_offset(self, hit_x: float, hit_y: float, tile: int, side: int, cell: tuple[int, int]) -> float:
         if tile in DOOR_TILES:
