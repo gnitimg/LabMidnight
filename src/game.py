@@ -305,6 +305,11 @@ class Game:
 
     def _update_story_triggers(self) -> None:
         player = self.player
+        if self.current_floor == BUILDING_BOTTOM_FLOOR and self.game_map.reached_ground_exit(player.x, player.y):
+            player.flags["exit_opened"] = True
+            self.enter_success()
+            return
+
         region = self.game_map.region_at(player.x, player.y)
         if region != "lab" and not player.flags.get("left_lab", False):
             player.flags["left_lab"] = True

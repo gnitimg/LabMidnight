@@ -391,6 +391,23 @@ class MapEditorState:
             detail = f" Clipped {clipped_room_count} room(s) at bounds."
         self.status = f"Grid resized to {self.grid_width} x {self.grid_height}.{detail}"
 
+    def clear_map(self) -> None:
+        self.rooms.clear()
+        self.doors.clear()
+        self.objects.clear()
+        self.overrides.clear()
+        self.start_cell = None
+        self.selected_room_id = None
+        self.selected_door = None
+        self.selected_object = None
+
+        room = Room(1, 1, 1, MIN_ROOM_SIZE, MIN_ROOM_SIZE, "Start Room", "1")
+        self.rooms.append(room)
+        self.next_room_id = 2
+        self.start_cell = (room.x + 1, room.y + 1)
+        self.rebuild_grid()
+        self.status = "Cleared map. Kept one 3 x 3 start room."
+
     def add_room(self, x1: int, y1: int, x2: int, y2: int) -> Room | None:
         min_x, max_x = sorted((x1, x2))
         min_y, max_y = sorted((y1, y2))
@@ -588,6 +605,9 @@ class MapEditor:
         self.drag_start_cell: tuple[int, int] | None = None
         self.drag_current_cell: tuple[int, int] | None = None
         self.drag_initial_room: tuple[int, int, int, int] | None = None
+        self.selection_rect: tuple[int, int, int, int] | None = None
+        self.selection_items = self._empty_selection_items()
+        self.selection_move_snapshot: dict[str, object] | None = None
         self.hover_cell: tuple[int, int] | None = None
         self.panel_fields: dict[str, pygame.Rect] = {}
         self.floor_buttons: dict[int, pygame.Rect] = {}
@@ -638,6 +658,8 @@ class MapEditor:
         self._add_button("Save Ctrl+S", "command", "save", y)
         y += 36
         self._add_button("Reload Ctrl+L", "command", "load", y)
+        y += 36
+        self._add_button("Clear Map", "command", "clear", y)
 
     def _add_button(self, label: str, action: str, payload: str | None, y: int) -> None:
         self.buttons.append((pygame.Rect(14, y, TOOLBAR_WIDTH - 28, 28), label, action, payload))
@@ -673,10 +695,14 @@ class MapEditor:
             self.state.selected_room_id = None
             self.state.selected_door = None
             self.state.selected_object = None
+            self._clear_area_selection()
             self.drag_mode = None
             self._cancel_editing_field()
         elif event.key == pygame.K_DELETE:
-            self.state.delete_selection()
+            if self.selection_rect is not None:
+                self._delete_area_selection()
+            else:
+                self.state.delete_selection()
         elif event.key == pygame.K_s and mods & pygame.KMOD_CTRL:
             self.state.save()
         elif event.key == pygame.K_l and mods & pygame.KMOD_CTRL:
@@ -825,16 +851,24 @@ class MapEditor:
         if cell is None:
             return
 
-        if self.active_tool == "select":
+        if pygame.key.get_mods() & pygame.KMOD_CTRL:
+            self.active_tool = "select"
+            self._begin_box_selection(cell)
+        elif self.active_tool == "select" and self._begin_area_move(cell):
+            return
+        elif self.active_tool == "select":
             self._begin_select_drag(cell)
         elif self.active_tool == "room":
+            self._clear_area_selection()
             self.drag_mode = "create_room"
             self.drag_start_cell = cell
             self.drag_current_cell = cell
         elif self.active_tool == "door":
+            self._clear_area_selection()
             self.drag_mode = "place_door"
             self.drag_current_cell = cell
         else:
+            self._clear_area_selection()
             self._paint_cell(cell)
 
     def _button_at(self, pos: tuple[int, int]) -> tuple[pygame.Rect, str, str, str | None] | None:
@@ -850,6 +884,12 @@ class MapEditor:
                 self.state.save()
             elif payload == "load":
                 self.state = MapEditorState.load(self.state.floor)
+                self._clear_area_selection()
+            elif payload == "clear":
+                self._clear_area_selection()
+                self.drag_mode = None
+                self.state.clear_map()
+                self.active_tool = "select"
             return
         self.active_tool = action
         if action == "door" and payload is not None:
@@ -885,22 +925,26 @@ class MapEditor:
 
     def _begin_select_drag(self, cell: tuple[int, int]) -> None:
         if cell in self.state.doors:
+            self._clear_area_selection()
             self.state.selected_door = cell
             self.state.selected_room_id = None
             self.state.selected_object = None
             return
         if cell in self.state.objects:
+            self._clear_area_selection()
             self.state.selected_object = cell
             self.state.selected_room_id = None
             self.state.selected_door = None
             return
         room = self.state.room_at(cell)
         if room is None:
+            self._clear_area_selection()
             self.state.selected_room_id = None
             self.state.selected_door = None
             self.state.selected_object = None
             return
 
+        self._clear_area_selection()
         self.state.selected_room_id = room.room_id
         self.state.selected_door = None
         self.state.selected_object = None
@@ -911,10 +955,226 @@ class MapEditor:
         else:
             self.drag_mode = "move_room"
 
+    def _begin_box_selection(self, cell: tuple[int, int]) -> None:
+        self._clear_individual_selection()
+        self.selection_rect = None
+        self.selection_items = self._empty_selection_items()
+        self.drag_mode = "box_select"
+        self.drag_start_cell = cell
+        self.drag_current_cell = cell
+
+    def _finish_box_selection(self) -> None:
+        if self.drag_start_cell is None or self.drag_current_cell is None:
+            return
+        rect = self._normalized_cell_rect(self.drag_start_cell, self.drag_current_cell)
+        self._select_area(rect)
+
+    def _begin_area_move(self, cell: tuple[int, int]) -> bool:
+        if self.selection_rect is None or not self._cell_in_rect(cell, self.selection_rect):
+            return False
+        if self._selection_item_count(self.selection_items) == 0:
+            self._clear_area_selection()
+            return False
+        self._clear_individual_selection()
+        self.drag_mode = "move_selection"
+        self.drag_start_cell = cell
+        self.drag_current_cell = cell
+        self.selection_move_snapshot = self._capture_selection_move_snapshot()
+        return True
+
+    def _finish_area_move(self) -> None:
+        if self.selection_rect is None:
+            return
+        self.selection_items = self._collect_area_items(self.selection_rect)
+        count = self._selection_item_count(self.selection_items)
+        if count == 0:
+            self._clear_area_selection()
+            return
+        self.state.status = f"Moved selected area ({count} item(s))."
+
+    def _move_area_selection(self, cell: tuple[int, int]) -> None:
+        if self.drag_start_cell is None or self.selection_move_snapshot is None:
+            return
+        start_x, start_y = self.drag_start_cell
+        dx = cell[0] - start_x
+        dy = cell[1] - start_y
+        rect = self.selection_move_snapshot["rect"]
+        if not isinstance(rect, tuple):
+            return
+        dx, dy = self._clamp_selection_delta(rect, dx, dy)
+
+        room_positions = self.selection_move_snapshot["rooms"]
+        if isinstance(room_positions, dict):
+            for room in self.state.rooms:
+                original = room_positions.get(room.room_id)
+                if original is None:
+                    continue
+                x, y, w, h = original
+                room.x = x + dx
+                room.y = y + dy
+                room.w = w
+                room.h = h
+
+        self.state.doors = self._move_cell_dict_snapshot("doors", dx, dy)
+        self.state.objects = self._move_cell_dict_snapshot("objects", dx, dy)
+        self.state.overrides = self._move_cell_dict_snapshot("overrides", dx, dy)
+
+        start_cell = self.selection_move_snapshot.get("start_cell")
+        start_selected = bool(self.selection_move_snapshot.get("start_selected"))
+        if start_selected and isinstance(start_cell, tuple):
+            self.state.start_cell = (start_cell[0] + dx, start_cell[1] + dy)
+        elif isinstance(start_cell, tuple):
+            self.state.start_cell = start_cell
+        else:
+            self.state.start_cell = None
+
+        self.selection_rect = self._translate_cell_rect(rect, dx, dy)
+        self.state.rebuild_grid()
+
+    def _move_cell_dict_snapshot(self, key: str, dx: int, dy: int) -> dict[tuple[int, int], str]:
+        base = self.selection_move_snapshot.get(f"base_{key}") if self.selection_move_snapshot else None
+        selected = self.selection_move_snapshot.get(f"selected_{key}") if self.selection_move_snapshot else None
+        moved: dict[tuple[int, int], str] = dict(base) if isinstance(base, dict) else {}
+        if isinstance(selected, dict):
+            for (x, y), symbol in selected.items():
+                moved[(x + dx, y + dy)] = symbol
+        return moved
+
+    def _capture_selection_move_snapshot(self) -> dict[str, object]:
+        room_ids = self.selection_items["rooms"]
+        door_cells = self.selection_items["doors"]
+        object_cells = self.selection_items["objects"]
+        override_cells = self.selection_items["overrides"]
+        return {
+            "rect": self.selection_rect,
+            "rooms": {
+                room.room_id: (room.x, room.y, room.w, room.h)
+                for room in self.state.rooms
+                if room.room_id in room_ids
+            },
+            "base_doors": {cell: symbol for cell, symbol in self.state.doors.items() if cell not in door_cells},
+            "selected_doors": {cell: symbol for cell, symbol in self.state.doors.items() if cell in door_cells},
+            "base_objects": {cell: symbol for cell, symbol in self.state.objects.items() if cell not in object_cells},
+            "selected_objects": {cell: symbol for cell, symbol in self.state.objects.items() if cell in object_cells},
+            "base_overrides": {cell: symbol for cell, symbol in self.state.overrides.items() if cell not in override_cells},
+            "selected_overrides": {cell: symbol for cell, symbol in self.state.overrides.items() if cell in override_cells},
+            "start_cell": self.state.start_cell,
+            "start_selected": bool(self.selection_items["start"]),
+        }
+
+    def _select_area(self, rect: tuple[int, int, int, int]) -> None:
+        self.selection_rect = rect
+        self.selection_items = self._collect_area_items(rect)
+        count = self._selection_item_count(self.selection_items)
+        if count == 0:
+            self._clear_area_selection()
+            self.state.status = "Selection is empty."
+            return
+        self._clear_individual_selection()
+        self.state.status = f"Selected area ({count} item(s)). Drag inside it to move."
+
+    def _collect_area_items(self, rect: tuple[int, int, int, int]) -> dict[str, object]:
+        items = self._empty_selection_items()
+        room_ids = items["rooms"]
+        door_cells = items["doors"]
+        object_cells = items["objects"]
+        override_cells = items["overrides"]
+        for room in self.state.rooms:
+            if self._room_intersects_rect(room, rect):
+                room_ids.add(room.room_id)
+        for cell in self.state.doors:
+            if self._cell_in_rect(cell, rect):
+                door_cells.add(cell)
+        for cell in self.state.objects:
+            if self._cell_in_rect(cell, rect):
+                object_cells.add(cell)
+        for cell in self.state.overrides:
+            if self._cell_in_rect(cell, rect):
+                override_cells.add(cell)
+        if self.state.start_cell is not None and self._cell_in_rect(self.state.start_cell, rect):
+            items["start"] = True
+        return items
+
+    def _delete_area_selection(self) -> None:
+        room_ids = self.selection_items["rooms"]
+        self.state.rooms = [room for room in self.state.rooms if room.room_id not in room_ids]
+        for cell in list(self.selection_items["doors"]):
+            self.state.doors.pop(cell, None)
+        for cell in list(self.selection_items["objects"]):
+            self.state.objects.pop(cell, None)
+        for cell in list(self.selection_items["overrides"]):
+            self.state.overrides.pop(cell, None)
+        if self.selection_items["start"]:
+            self.state.start_cell = None
+        self._clear_area_selection()
+        self.state.rebuild_grid()
+        self.state.status = "Deleted selected area."
+
+    def _clear_individual_selection(self) -> None:
+        self.state.selected_room_id = None
+        self.state.selected_door = None
+        self.state.selected_object = None
+
+    def _clear_area_selection(self) -> None:
+        self.selection_rect = None
+        self.selection_items = self._empty_selection_items()
+        self.selection_move_snapshot = None
+
+    def _empty_selection_items(self) -> dict[str, object]:
+        return {
+            "rooms": set(),
+            "doors": set(),
+            "objects": set(),
+            "overrides": set(),
+            "start": False,
+        }
+
+    def _selection_item_count(self, items: dict[str, object]) -> int:
+        total = 0
+        for key in ("rooms", "doors", "objects", "overrides"):
+            values = items.get(key)
+            if isinstance(values, set):
+                total += len(values)
+        if items.get("start"):
+            total += 1
+        return total
+
+    def _normalized_cell_rect(self, start: tuple[int, int], end: tuple[int, int]) -> tuple[int, int, int, int]:
+        min_x, max_x = sorted((start[0], end[0]))
+        min_y, max_y = sorted((start[1], end[1]))
+        return min_x, min_y, max_x, max_y
+
+    def _translate_cell_rect(self, rect: tuple[int, int, int, int], dx: int, dy: int) -> tuple[int, int, int, int]:
+        min_x, min_y, max_x, max_y = rect
+        return min_x + dx, min_y + dy, max_x + dx, max_y + dy
+
+    def _clamp_selection_delta(self, rect: tuple[int, int, int, int], dx: int, dy: int) -> tuple[int, int]:
+        min_x, min_y, _, _ = rect
+        if min_x + dx < 0:
+            dx = -min_x
+        if min_y + dy < 0:
+            dy = -min_y
+        return dx, dy
+
+    def _cell_in_rect(self, cell: tuple[int, int], rect: tuple[int, int, int, int]) -> bool:
+        x, y = cell
+        min_x, min_y, max_x, max_y = rect
+        return min_x <= x <= max_x and min_y <= y <= max_y
+
+    def _room_intersects_rect(self, room: Room, rect: tuple[int, int, int, int]) -> bool:
+        min_x, min_y, max_x, max_y = rect
+        room_max_x = room.x + room.w - 1
+        room_max_y = room.y + room.h - 1
+        return not (room_max_x < min_x or room.x > max_x or room_max_y < min_y or room.y > max_y)
+
     def _handle_mouse_up(self, event: pygame.event.Event) -> None:
         if event.button != 1:
             return
-        if self.drag_mode == "create_room" and self.drag_start_cell and self.drag_current_cell:
+        if self.drag_mode == "box_select" and self.drag_start_cell and self.drag_current_cell:
+            self._finish_box_selection()
+        elif self.drag_mode == "move_selection":
+            self._finish_area_move()
+        elif self.drag_mode == "create_room" and self.drag_start_cell and self.drag_current_cell:
             self.state.add_room(*self.drag_start_cell, *self.drag_current_cell)
         elif self.drag_mode == "place_door" and self.drag_current_cell:
             self.state.place_door(self.drag_current_cell, self.active_door_symbol)
@@ -928,6 +1188,7 @@ class MapEditor:
         self.drag_start_cell = None
         self.drag_current_cell = None
         self.drag_initial_room = None
+        self.selection_move_snapshot = None
 
     def _handle_mouse_motion(self, event: pygame.event.Event) -> None:
         self.hover_cell = self._cell_from_pos(event.pos)
@@ -944,6 +1205,13 @@ class MapEditor:
 
         cell = self._cell_from_pos(event.pos)
         if cell is None:
+            return
+        if self.drag_mode == "box_select":
+            self.drag_current_cell = cell
+            return
+        if self.drag_mode == "move_selection":
+            self.drag_current_cell = cell
+            self._move_area_selection(cell)
             return
         if self.drag_mode == "toolbar":
             if self.active_tool == "room":
@@ -1088,6 +1356,7 @@ class MapEditor:
             "Drag Room from toolbar or canvas.",
             "Drag bottom-right handle to resize.",
             "Doors snap to valid wall cells.",
+            "Ctrl+drag box-selects items.",
             "Bottom bar scrolls left/right.",
             "Middle/right drag pans the grid.",
             "Keys: Ctrl+S save, Del delete.",
@@ -1125,6 +1394,7 @@ class MapEditor:
             self._draw_room_overlay(room)
         self._draw_drag_preview()
         self._draw_door_preview()
+        self._draw_area_selection()
         self.screen.set_clip(clip)
         self._draw_horizontal_scrollbar()
         pygame.draw.rect(self.screen, COLOR_PANEL_EDGE, canvas, 1)
@@ -1156,9 +1426,6 @@ class MapEditor:
         selected = room.room_id == self.state.selected_room_id
         color = COLOR_SELECTED if selected else (92, 104, 105)
         pygame.draw.rect(self.screen, color, rect, 2 if selected else 1)
-        label = f"{room.number} {room.name}".strip()
-        label_surface = self.small_font.render(label, True, color)
-        self.screen.blit(label_surface, (rect.x + 5, rect.y + 5))
         if selected:
             hx, hy = self._screen_from_cell(*room.handle_cell())
             handle = pygame.Rect(hx + CELL_SIZE - 8, hy + CELL_SIZE - 8, 8, 8)
@@ -1184,6 +1451,21 @@ class MapEditor:
         sx, sy = self._screen_from_cell(*target)
         rect = pygame.Rect(sx, sy, CELL_SIZE, CELL_SIZE)
         pygame.draw.rect(self.screen, COLOR_ACCENT, rect, 3)
+
+    def _draw_area_selection(self) -> None:
+        rect_cells: tuple[int, int, int, int] | None = None
+        color = COLOR_SELECTED
+        if self.drag_mode == "box_select" and self.drag_start_cell is not None and self.drag_current_cell is not None:
+            rect_cells = self._normalized_cell_rect(self.drag_start_cell, self.drag_current_cell)
+            color = COLOR_ACCENT
+        elif self.selection_rect is not None:
+            rect_cells = self.selection_rect
+        if rect_cells is None:
+            return
+        min_x, min_y, max_x, max_y = rect_cells
+        sx, sy = self._screen_from_cell(min_x, min_y)
+        rect = pygame.Rect(sx, sy, (max_x - min_x + 1) * CELL_SIZE, (max_y - min_y + 1) * CELL_SIZE)
+        pygame.draw.rect(self.screen, color, rect, 2)
 
     def _draw_panel(self) -> None:
         panel = self.panel_rect
@@ -1229,6 +1511,14 @@ class MapEditor:
             self._draw_text("Selected object", (panel.x + 20, 230), self.font, COLOR_TEXT)
             self._draw_text(f"{symbol}: {OBJECT_LABELS.get(symbol, 'Unknown')}", (panel.x + 24, 262), self.font, COLOR_ACCENT)
             self._draw_text(f"Cell: {cell[0]}, {cell[1]}", (panel.x + 24, 292), self.small_font, COLOR_MUTED)
+        elif self.selection_rect is not None:
+            min_x, min_y, max_x, max_y = self.selection_rect
+            count = self._selection_item_count(self.selection_items)
+            self._draw_text("Selected area", (panel.x + 20, 230), self.font, COLOR_TEXT)
+            self._draw_text(f"Items: {count}", (panel.x + 24, 262), self.font, COLOR_ACCENT)
+            self._draw_text(f"From: {min_x}, {min_y}", (panel.x + 24, 292), self.small_font, COLOR_MUTED)
+            self._draw_text(f"To: {max_x}, {max_y}", (panel.x + 24, 316), self.small_font, COLOR_MUTED)
+            self._draw_text("Drag inside box to move.", (panel.x + 24, 350), self.small_font, COLOR_MUTED)
         else:
             self._draw_text("No selection", (panel.x + 20, 230), self.font, COLOR_MUTED)
             self._draw_text("Create or select a room to edit metadata.", (panel.x + 20, 260), self.small_font, COLOR_MUTED)

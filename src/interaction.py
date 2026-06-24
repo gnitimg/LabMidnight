@@ -6,6 +6,7 @@ import math
 
 from .settings import (
     BATTERY_RESTORE,
+    BUILDING_BOTTOM_FLOOR,
     DOOR_TILES,
     INTERACT_DISTANCE,
     TILE_CLASSROOM_DOOR,
@@ -45,9 +46,11 @@ class InteractionSystem:
         tile = payload
         role = self.game_map.door_role_at(*cell)
         if tile == TILE_EXIT_DOOR:
-            if self.game_map.floor > 1:
-                return "按 Space 进入安全出口"
-            return "按 Space 使用门禁"
+            if self.game_map.floor > BUILDING_BOTTOM_FLOOR:
+                if player.has_item("access_card"):
+                    return "按 Space 进入安全出口"
+                return "安全出口需要门禁卡"
+            return "向前离开实验楼"
         if tile == TILE_POWER_DOOR:
             return "按 Space 检查配电室门"
         if role == "server":
@@ -114,23 +117,20 @@ class InteractionSystem:
             return "黑板上的数字对上了。配电室门锁弹开。"
 
         if tile == TILE_EXIT_DOOR:
-            if game.current_floor > 1:
+            if game.current_floor > BUILDING_BOTTOM_FLOOR:
+                if not player.has_item("access_card"):
+                    game.audio.play("error")
+                    return "安全出口门禁没有反应，需要门禁卡。"
                 self.game_map.open_door(x, y)
                 player.flags["safety_exit_opened"] = True
                 game.audio.play("door_open")
                 game.open_floor_exit_prompt()
                 return ""
-            if not player.flags.get("power_restored", False):
-                game.audio.play("error")
-                return "出口门禁没有反应，电力尚未恢复。"
-            if not player.has_item("access_card"):
-                game.audio.play("error")
-                return "门禁灯闪着红光，需要门禁卡。"
             player.flags["exit_opened"] = True
             player.flags["success_ending"] = True
             game.audio.play("door_open")
             game.enter_success()
-            return "门禁灯由红变绿。"
+            return "你冲出一层出口，夜风一下子灌进来。"
 
         game.audio.play("error")
         return "打不开。"
@@ -214,17 +214,19 @@ class InteractionSystem:
             return "屏幕上显示：玩家位置，四层实验楼。出口状态：等待确认。"
 
         if obj.object_id == "exit_panel":
-            if not player.flags.get("power_restored", False):
-                game.audio.play("error")
-                return "电力尚未恢复，出口门禁没有反应。"
-            if not player.has_item("access_card"):
-                game.audio.play("error")
-                return "需要门禁卡。"
+            if game.current_floor > BUILDING_BOTTOM_FLOOR:
+                if not player.has_item("access_card"):
+                    game.audio.play("error")
+                    return "安全出口门禁需要门禁卡。"
+                player.flags["safety_exit_opened"] = True
+                game.audio.play("door_open")
+                game.open_floor_exit_prompt()
+                return ""
             player.flags["exit_opened"] = True
             player.flags["success_ending"] = True
             game.audio.play("door_open")
             game.enter_success()
-            return "门禁灯由红变绿。"
+            return "你冲出一层出口，夜风一下子灌进来。"
 
         game.audio.play("error")
         return obj.description or "这里没有更多线索。"

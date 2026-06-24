@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .settings import (
+    BUILDING_BOTTOM_FLOOR,
     BUILDING_TOP_FLOOR,
     DOOR_COLLISION_THICKNESS,
     DOOR_OPEN_SPEED,
@@ -416,6 +417,8 @@ class GameMap:
         tile = self.tile_at(x, y)
         if tile == TILE_WALL:
             return True
+        if self.is_ground_exit_tile(x, y):
+            return False
         if tile in DOOR_TILES and not self.is_open_door(x, y):
             return True
         return False
@@ -432,10 +435,18 @@ class GameMap:
                 tile = self.tile_at(cell_x, cell_y)
                 if tile == TILE_WALL and self._collides_wall_rect(x, y, cell_x, cell_y, radius_squared):
                     return False
+                if self.is_ground_exit_tile(cell_x, cell_y):
+                    continue
                 if tile in DOOR_TILES and not self.is_passable_door(cell_x, cell_y):
                     if self._collides_wall_rect(x, y, cell_x, cell_y, radius_squared):
                         return False
         return True
+
+    def is_ground_exit_tile(self, x: int, y: int) -> bool:
+        return self.floor == BUILDING_BOTTOM_FLOOR and self.tile_at(x, y) == TILE_EXIT_DOOR
+
+    def reached_ground_exit(self, x: float, y: float) -> bool:
+        return self.is_ground_exit_tile(int(x), int(y))
 
     def _collides_wall_rect(self, x: float, y: float, cell_x: int, cell_y: int, radius_squared: float) -> bool:
         closest_x = min(max(x, cell_x), cell_x + 1.0)
