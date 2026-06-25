@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pygame
 
-from .ending import FAILURE_TITLE, SUCCESS_TITLE
-from .settings import (
+from src.ui.ending import FAILURE_TITLE, SUCCESS_TITLE
+from src.settings import (
     COLOR_DANGER,
     COLOR_MUTED,
     COLOR_PANEL,

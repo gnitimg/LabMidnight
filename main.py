@@ -15,7 +15,7 @@ def prefer_discrete_gpu() -> None:
 
 prefer_discrete_gpu()
 
-from src.game import Game
+from src.core.game import Game
 
 
 def main() -> None:

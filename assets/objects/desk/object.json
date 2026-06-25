@@ -1,0 +1,10 @@
+{
+  "name": "Lab Desk",
+  "length": 2.0,
+  "width": 1.0,
+  "height": 1.2,
+  "placement_height": 0.0,
+  "solid": true,
+  "prompt": "Press Space to inspect Lab Desk",
+  "description": "Optional interaction text."
+}

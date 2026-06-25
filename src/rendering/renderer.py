@@ -11,8 +11,8 @@ try:
 except ImportError:  # pragma: no cover - fallback path for minimal installs.
     np = None
 
-from .asset_manager import TEXTURE_CEILING, TEXTURE_FLOOR, TextureStore
-from .settings import (
+from src.resources.asset_manager import TEXTURE_CEILING, TEXTURE_FLOOR, TextureStore
+from src.settings import (
     CAMERA_HEIGHT_UNITS,
     CEILING_HEIGHT_UNITS,
     COLOR_BLACK,
@@ -31,6 +31,7 @@ from .settings import (
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     TILE_WALL,
+    VERTICAL_UNITS_PER_TILE,
     VERTICAL_PROJECTION,
     WALL_COLORS,
 )
@@ -45,6 +46,7 @@ class RaycastingRenderer:
         self._texture_mip_cache: dict[int, list] = {}
         self._ceiling_surface_cache: dict[tuple[int, int], pygame.Surface] = {}
         self._perspective_surface_cache: dict[tuple[str, int, int], pygame.Surface] = {}
+        self._fallback_object_texture_cache: dict[tuple[str, str], pygame.Surface] = {}
         self.floor_quality_scale = 2
         self.floor_sample_width = SCREEN_WIDTH // self.floor_quality_scale
         self.floor_sample_height = HALF_HEIGHT // self.floor_quality_scale
@@ -102,9 +104,10 @@ class RaycastingRenderer:
                 span = self._visible_wall_span(top_y, bottom_y)
                 if span is not None:
                     visible_top, visible_height = span
-                    color = self._shade_color(tile, corrected, ray_angle, player, elapsed)
+                    color = self._shade_color(tile, corrected, ray_angle, player, elapsed, side)
                     pygame.draw.rect(self.screen, color, (x, visible_top, column_width + 1, visible_height))
 
+        self._draw_objects(player, elapsed, horizon, depth_buffer)
         self._draw_open_doors(player, elapsed, horizon, depth_buffer)
 
     def _horizon(self, player) -> int:
@@ -471,6 +474,125 @@ class RaycastingRenderer:
         texture_offset = (hit_y - min_y) / max(1.0, max_y - min_y + 1.0)
         return abs(distance), plane_x, hit_y, 0, max(0.0, min(0.999, texture_offset))
 
+    def _draw_objects(self, player, elapsed: float, horizon: int, depth_buffer: list[float]) -> None:
+        panels: list[tuple[float, pygame.Surface, str, tuple[float, float], tuple[float, float], float, float, float]] = []
+        tops: list[tuple[float, pygame.Surface, list[tuple[float, float, float]], float]] = []
+        for anchor, obj in self.game_map.objects.items():
+            if anchor in self.game_map.picked_objects:
+                continue
+            x0, y0, x1, y1 = self.game_map.object_bounds(anchor, obj)
+            bottom_z = obj.placement_height * VERTICAL_UNITS_PER_TILE
+            top_z = (obj.placement_height + obj.height) * VERTICAL_UNITS_PER_TILE
+            if top_z <= bottom_z:
+                continue
+
+            face_data = [
+                ("front", (0.0, 1.0), (x1, y1), (x0, y1), 0.92),
+                ("back", (0.0, -1.0), (x0, y0), (x1, y0), 0.70),
+                ("left", (-1.0, 0.0), (x0, y1), (x0, y0), 0.78),
+                ("right", (1.0, 0.0), (x1, y0), (x1, y1), 0.86),
+            ]
+            for face, normal, p0, p1, side_light in face_data:
+                center_x = (p0[0] + p1[0]) * 0.5
+                center_y = (p0[1] + p1[1]) * 0.5
+                to_player_x = player.x - center_x
+                to_player_y = player.y - center_y
+                if to_player_x * normal[0] + to_player_y * normal[1] <= 0:
+                    continue
+                texture = self._object_face_texture(obj.asset_id or obj.object_id, self._rotated_face(face, obj.rotation))
+                distance_key = (center_x - player.x) ** 2 + (center_y - player.y) ** 2
+                panels.append((distance_key, texture, face, p0, p1, bottom_z, top_z, side_light))
+
+            top_texture = self._object_face_texture(obj.asset_id or obj.object_id, "top")
+            top_points = [(x0, y0, top_z), (x1, y0, top_z), (x1, y1, top_z), (x0, y1, top_z)]
+            center_x = (x0 + x1) * 0.5
+            center_y = (y0 + y1) * 0.5
+            tops.append(((center_x - player.x) ** 2 + (center_y - player.y) ** 2, top_texture, top_points, 0.82))
+
+        for _, texture, _face, p0, p1, bottom_z, top_z, side_light in sorted(panels, key=lambda item: item[0], reverse=True):
+            self._draw_world_panel(
+                texture,
+                TILE_WALL,
+                p0,
+                p1,
+                player,
+                elapsed,
+                horizon,
+                depth_buffer,
+                bottom_z=bottom_z,
+                top_z=top_z,
+                side_light=side_light,
+            )
+
+        for _, texture, points, side_light in sorted(tops, key=lambda item: item[0], reverse=True):
+            self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light)
+
+    def _object_face_texture(self, object_id: str, face: str) -> pygame.Surface:
+        texture = self.textures.for_object_face(object_id, face)
+        if texture is not None:
+            return texture
+        key = (object_id, face)
+        cached = self._fallback_object_texture_cache.get(key)
+        if cached is not None:
+            return cached
+        base = sum(ord(ch) for ch in object_id + face)
+        color = (90 + base % 45, 82 + (base // 3) % 45, 68 + (base // 7) % 45)
+        surface = pygame.Surface((48, 48)).convert()
+        surface.fill(color)
+        pygame.draw.rect(surface, tuple(max(0, channel - 28) for channel in color), surface.get_rect(), 2)
+        self._fallback_object_texture_cache[key] = surface
+        return surface
+
+    def _rotated_face(self, face: str, rotation: int) -> str:
+        order = ("front", "right", "back", "left")
+        if face not in order:
+            return face
+        steps = (rotation // 90) % 4
+        return order[(order.index(face) - steps) % 4]
+
+    def _draw_world_top(
+        self,
+        texture: pygame.Surface,
+        points: list[tuple[float, float, float]],
+        player,
+        elapsed: float,
+        horizon: int,
+        depth_buffer: list[float],
+        side_light: float,
+    ) -> None:
+        projected: list[tuple[float, float, float]] = []
+        for x, y, z in points:
+            right, _unused, forward = self._camera_space(x, y, player)
+            if forward <= DOOR_PANEL_NEAR_CLIP:
+                return
+            screen_x = HALF_WIDTH + right / forward * VERTICAL_PROJECTION
+            screen_y = horizon - VERTICAL_PROJECTION * (z - CAMERA_HEIGHT_UNITS) / forward
+            projected.append((screen_x, screen_y, forward))
+
+        min_x = max(0, int(math.floor(min(point[0] for point in projected))))
+        max_x = min(SCREEN_WIDTH - 1, int(math.ceil(max(point[0] for point in projected))))
+        min_y = max(0, int(math.floor(min(point[1] for point in projected))))
+        max_y = min(SCREEN_HEIGHT - 1, int(math.ceil(max(point[1] for point in projected))))
+        if max_x <= min_x or max_y <= min_y:
+            return
+        center_distance = sum(point[2] for point in projected) / len(projected)
+        center_ray = min(NUM_RAYS - 1, max(0, int(((min_x + max_x) * 0.5) * NUM_RAYS / SCREEN_WIDTH)))
+        if center_distance > depth_buffer[center_ray] + 0.04:
+            return
+
+        target = pygame.Rect(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+        if target.width > SCREEN_WIDTH * 0.9 or target.height > SCREEN_HEIGHT * 0.9:
+            return
+        patch = pygame.transform.smoothscale(texture, target.size).convert_alpha()
+        shade = self._shade_factor(center_distance, player.angle, player, elapsed) * side_light
+        shade_value = max(0, min(255, int(255 * min(1.0, shade))))
+        patch.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
+        mask = pygame.Surface(target.size, pygame.SRCALPHA)
+        polygon = [(int(x - target.x), int(y - target.y)) for x, y, _forward in projected]
+        pygame.draw.polygon(mask, (255, 255, 255, 255), polygon)
+        patch.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        self.screen.blit(patch, target)
+
     def _draw_open_doors(self, player, elapsed: float, horizon: int, depth_buffer: list[float]) -> None:
         drawn: set[frozenset[tuple[int, int]]] = set()
         groups: list[frozenset[tuple[int, int]]] = []
@@ -603,6 +725,9 @@ class RaycastingRenderer:
         *,
         texture_start: float = 0.0,
         texture_span: float = 1.0,
+        bottom_z: float = 0.0,
+        top_z: float = CEILING_HEIGHT_UNITS,
+        side_light: float = 1.0,
     ) -> None:
         ax, ay, az = self._camera_space(p0[0], p0[1], player)
         bx, by, bz = self._camera_space(p1[0], p1[1], player)
@@ -647,8 +772,8 @@ class RaycastingRenderer:
             if distance > depth_buffer[ray_index] + 0.04:
                 continue
 
-            top_y = horizon - VERTICAL_PROJECTION * (CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS) / distance
-            bottom_y = horizon + VERTICAL_PROJECTION * CAMERA_HEIGHT_UNITS / distance
+            top_y = horizon - VERTICAL_PROJECTION * (top_z - CAMERA_HEIGHT_UNITS) / distance
+            bottom_y = horizon - VERTICAL_PROJECTION * (bottom_z - CAMERA_HEIGHT_UNITS) / distance
             texture_u = texture_u0 + (texture_u1 - texture_u0) * t
             texture_x = max(0, min(texture_width - 1, int(texture_u * texture_width)))
             slice_info = self._visible_wall_slice(top_y, bottom_y, texture_height)
@@ -658,7 +783,7 @@ class RaycastingRenderer:
             source = pygame.Rect(texture_x, source_y, 1, source_height)
             column = texture.subsurface(source)
             column = pygame.transform.scale(column, (2, visible_height))
-            shade = self._shade_factor(distance, player.angle, player, elapsed)
+            shade = self._shade_factor(distance, player.angle, player, elapsed) * side_light
             shade_value = max(0, min(255, int(255 * min(1.0, shade))))
             column.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
             self.screen.blit(column, (screen_x, visible_top))
@@ -724,7 +849,7 @@ class RaycastingRenderer:
         column = texture.subsurface(source)
         column = pygame.transform.scale(column, (column_width + 1, visible_height))
 
-        shade = self._shade_factor(distance, ray_angle, player, elapsed)
+        shade = self._shade_factor(distance, ray_angle, player, elapsed) * self._wall_side_light(side)
         shade_value = max(0, min(255, int(255 * min(1.0, shade))))
         column.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
         if shade > 1.0:
@@ -755,10 +880,13 @@ class RaycastingRenderer:
             offset = hit_x - math.floor(hit_x)
         return offset % 1.0
 
-    def _shade_color(self, tile: int, distance: float, ray_angle: float, player, elapsed: float) -> tuple[int, int, int]:
+    def _shade_color(self, tile: int, distance: float, ray_angle: float, player, elapsed: float, side: int) -> tuple[int, int, int]:
         base = WALL_COLORS.get(tile, WALL_COLORS[TILE_WALL])
-        shade = self._shade_factor(distance, ray_angle, player, elapsed)
+        shade = self._shade_factor(distance, ray_angle, player, elapsed) * self._wall_side_light(side)
         return tuple(max(0, min(255, int(channel * shade))) for channel in base)
+
+    def _wall_side_light(self, side: int) -> float:
+        return 0.78 if side == 1 else 0.94
 
     def _shade_factor(self, distance: float, ray_angle: float, player, elapsed: float) -> float:
         power_restored = player.flags.get("power_restored", False)

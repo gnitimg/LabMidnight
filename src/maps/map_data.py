@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 import math
 from pathlib import Path
 from typing import Iterable
 
-from .settings import (
+from src.resources.object_assets import ObjectSpec, load_object_specs
+from src.settings import (
     BUILDING_BOTTOM_FLOOR,
     BUILDING_TOP_FLOOR,
     DOOR_COLLISION_THICKNESS,
@@ -27,12 +28,37 @@ from .settings import (
 
 
 MAP_LAYOUT_PATH = Path("data/map_layout.txt")
+MAP_ROOM_META_PATH = Path("data/map_rooms.json")
 FLOOR_MAP_DIR = Path("data/floors")
 MAP_CONFIG_PATH = Path("data/map_config.json")
+
+SOLID_TEMPLATE_OBJECT_IDS = {
+    "lab_desk",
+    "blackboard",
+    "lectern",
+    "security_desk",
+    "fuse_cabinet",
+    "power_box",
+    "server_terminal",
+    "exit_panel",
+}
 
 
 def floor_layout_path(floor: int) -> Path:
     return FLOOR_MAP_DIR / f"floor_{floor}.txt"
+
+
+def floor_room_meta_path(floor: int) -> Path:
+    return FLOOR_MAP_DIR / f"floor_{floor}_rooms.json"
+
+
+def room_meta_path_for_floor(floor: int) -> Path:
+    floor_path = floor_room_meta_path(floor)
+    if floor_path.exists():
+        return floor_path
+    if floor == BUILDING_TOP_FLOOR and MAP_ROOM_META_PATH.exists():
+        return MAP_ROOM_META_PATH
+    return floor_path
 
 
 def layout_path_for_floor(floor: int) -> Path:
@@ -72,6 +98,19 @@ class MapObject:
     name: str
     prompt: str
     description: str = ""
+    asset_id: str = ""
+    length: float = 1.0
+    width: float = 1.0
+    height: float = 1.0
+    placement_height: float = 0.0
+    rotation: int = 0
+    solid: bool = False
+
+    def footprint_size(self) -> tuple[float, float]:
+        normalized = self.rotation % 360
+        if normalized in (90, 270):
+            return self.width, self.length
+        return self.length, self.width
 
 
 def object_templates() -> dict[str, MapObject]:
@@ -133,6 +172,84 @@ def object_templates() -> dict[str, MapObject]:
     }
 
 
+def _object_from_spec(spec: ObjectSpec, rotation: int = 0) -> MapObject:
+    return MapObject(
+        object_id=spec.object_id,
+        name=spec.name,
+        prompt=spec.prompt,
+        description=spec.description,
+        asset_id=spec.object_id,
+        length=spec.length,
+        width=spec.width,
+        height=spec.height,
+        placement_height=spec.placement_height,
+        rotation=rotation % 360,
+        solid=spec.solid,
+    )
+
+
+def _template_with_asset(template: MapObject, specs: dict[str, ObjectSpec], rotation: int = 0) -> MapObject:
+    spec = specs.get(template.object_id)
+    if spec is None:
+        return replace(
+            template,
+            asset_id=template.asset_id or template.object_id,
+            rotation=rotation % 360,
+            solid=_legacy_template_solid(template),
+        )
+    return replace(
+        template,
+        asset_id=spec.object_id,
+        length=spec.length,
+        width=spec.width,
+        height=spec.height,
+        placement_height=spec.placement_height,
+        rotation=rotation % 360,
+        solid=spec.solid,
+    )
+
+
+def _legacy_template_solid(template: MapObject) -> bool:
+    if template.object_id in SOLID_TEMPLATE_OBJECT_IDS:
+        return True
+    return template.solid
+
+
+def _object_with_metadata_overrides(obj: MapObject, raw: dict) -> MapObject:
+    updates: dict[str, float] = {}
+    length = _optional_positive_float(raw, "length")
+    width = _optional_positive_float(raw, "width")
+    height = _optional_positive_float(raw, "height")
+    placement_height = _optional_non_negative_float(raw, "placement_height")
+    if length is not None:
+        updates["length"] = length
+    if width is not None:
+        updates["width"] = width
+    if height is not None:
+        updates["height"] = height
+    if placement_height is not None:
+        updates["placement_height"] = placement_height
+    return replace(obj, **updates) if updates else obj
+
+
+def _optional_positive_float(payload: dict, key: str) -> float | None:
+    if key not in payload:
+        return None
+    try:
+        return max(0.05, float(payload[key]))
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_non_negative_float(payload: dict, key: str) -> float | None:
+    if key not in payload:
+        return None
+    try:
+        return max(0.0, float(payload[key]))
+    except (TypeError, ValueError):
+        return None
+
+
 class GameMap:
     """A compact fourth-floor slice of the lab building."""
 
@@ -147,12 +264,15 @@ class GameMap:
         self.objects: dict[tuple[int, int], MapObject] = {}
         self.door_roles: dict[tuple[int, int], str] = {}
         self.door_groups: dict[tuple[int, int], frozenset[tuple[int, int]]] = {}
+        self.object_specs = load_object_specs()
         self.start_position = (3.0, 3.0)
         layout_path = layout_path_for_floor(floor)
         if layout_path.exists():
             self._build_from_layout(layout_path)
         else:
             self._build_layout()
+        self._hydrate_existing_objects()
+        self._load_object_metadata()
         self._index_door_groups()
 
     def _build_from_layout(self, path: Path) -> None:
@@ -205,7 +325,7 @@ class GameMap:
         obj = templates.get(symbol)
         if obj is not None:
             self._set_tile(x, y, TILE_EMPTY)
-            self.objects[(x, y)] = obj
+            self.objects[(x, y)] = _template_with_asset(obj, self.object_specs)
             return
 
         self._set_tile(x, y, TILE_EMPTY)
@@ -281,6 +401,52 @@ class GameMap:
             "按 Space 使用门禁",
             "门禁灯闪着红光，像是在等最后一次确认。",
         )
+
+    def _hydrate_existing_objects(self) -> None:
+        templates_by_id = {template.object_id: template for template in object_templates().values()}
+        for cell, obj in list(self.objects.items()):
+            template = templates_by_id.get(obj.object_id, obj)
+            self.objects[cell] = _template_with_asset(template, self.object_specs, obj.rotation)
+
+    def _load_object_metadata(self) -> None:
+        meta_path = room_meta_path_for_floor(self.floor)
+        if not meta_path.exists():
+            return
+        try:
+            payload = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        raw_objects = payload.get("objects", [])
+        if not isinstance(raw_objects, list):
+            return
+
+        templates = object_templates()
+        templates_by_id = {template.object_id: template for template in templates.values()}
+        for raw in raw_objects:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                x = int(raw["x"])
+                y = int(raw["y"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            object_id = str(raw.get("object_id") or raw.get("asset_id") or raw.get("symbol") or "")
+            if not object_id:
+                continue
+            try:
+                rotation = int(raw.get("rotation", 0)) % 360
+            except (TypeError, ValueError):
+                rotation = 0
+
+            if object_id in templates:
+                obj = _template_with_asset(templates[object_id], self.object_specs, rotation)
+                self.objects[(x, y)] = _object_with_metadata_overrides(obj, raw)
+            elif object_id in templates_by_id:
+                obj = _template_with_asset(templates_by_id[object_id], self.object_specs, rotation)
+                self.objects[(x, y)] = _object_with_metadata_overrides(obj, raw)
+            elif object_id in self.object_specs:
+                obj = _object_from_spec(self.object_specs[object_id], rotation)
+                self.objects[(x, y)] = _object_with_metadata_overrides(obj, raw)
 
     def _carve_rect(self, x1: int, y1: int, x2: int, y2: int) -> None:
         for y in range(y1, y2 + 1):
@@ -440,6 +606,11 @@ class GameMap:
                 if tile in DOOR_TILES and not self.is_passable_door(cell_x, cell_y):
                     if self._collides_wall_rect(x, y, cell_x, cell_y, radius_squared):
                         return False
+        for anchor, obj in self.objects.items():
+            if anchor in self.picked_objects or not obj.solid:
+                continue
+            if self._collides_object_rect(x, y, anchor, obj, radius_squared):
+                return False
         return True
 
     def is_ground_exit_tile(self, x: int, y: int) -> bool:
@@ -475,13 +646,37 @@ class GameMap:
         within_span = (min_x - span_padding) <= x <= (max_x + 1.0 + span_padding)
         return within_span and abs(y - plane_y) <= PLAYER_RADIUS + half_thickness
 
+    def _collides_object_rect(self, x: float, y: float, anchor: tuple[int, int], obj: MapObject, radius_squared: float) -> bool:
+        min_x, min_y, max_x, max_y = self.object_bounds(anchor, obj)
+        closest_x = min(max(x, min_x), max_x)
+        closest_y = min(max(y, min_y), max_y)
+        dx = x - closest_x
+        dy = y - closest_y
+        return dx * dx + dy * dy < radius_squared
+
+    def object_bounds(self, anchor: tuple[int, int], obj: MapObject) -> tuple[float, float, float, float]:
+        length, width = obj.footprint_size()
+        x, y = anchor
+        return float(x), float(y), float(x) + max(0.05, length), float(y) + max(0.05, width)
+
+    def object_anchor_at(self, x: int, y: int) -> tuple[int, int] | None:
+        for anchor, obj in self.objects.items():
+            if anchor in self.picked_objects:
+                continue
+            min_x, min_y, max_x, max_y = self.object_bounds(anchor, obj)
+            if min_x <= x < max_x and min_y <= y < max_y:
+                return anchor
+        return None
+
     def object_at(self, x: int, y: int) -> MapObject | None:
-        if (x, y) in self.picked_objects:
+        anchor = self.object_anchor_at(x, y)
+        if anchor is None:
             return None
-        return self.objects.get((x, y))
+        return self.objects.get(anchor)
 
     def remove_object(self, x: int, y: int) -> None:
-        self.picked_objects.add((x, y))
+        anchor = self.object_anchor_at(x, y) or (x, y)
+        self.picked_objects.add(anchor)
 
     def region_at(self, x: float, y: float) -> str:
         ix, iy = int(x), int(y)

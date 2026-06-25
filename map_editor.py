@@ -15,7 +15,7 @@ def prefer_discrete_gpu() -> None:
 
 prefer_discrete_gpu()
 
-from src.map_editor import main
+from src.maps.map_editor import main
 
 
 if __name__ == "__main__":

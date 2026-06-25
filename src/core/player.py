@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import math
 
-from .settings import (
+from src.settings import (
     FLASHLIGHT_MAX,
     FLASHLIGHT_START,
     PLAYER_ROTATION_SPEED,

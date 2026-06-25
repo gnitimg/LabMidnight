@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from .settings import (
+from src.settings import (
     BATTERY_RESTORE,
     BUILDING_BOTTOM_FLOOR,
     DOOR_TILES,

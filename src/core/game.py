@@ -7,12 +7,10 @@ import time
 
 import pygame
 
-from .audio_manager import AudioManager
-from .interaction import InteractionSystem
-from .map_data import GameMap, load_initial_player_config
-from .player import Player
-from .renderer import RaycastingRenderer
-from .settings import (
+from src.core.player import Player
+from src.maps.map_data import GameMap, load_initial_player_config
+from src.rendering.renderer import RaycastingRenderer
+from src.settings import (
     BUILDING_BOTTOM_FLOOR,
     BUILDING_TOP_FLOOR,
     COLOR_BLACK,
@@ -32,7 +30,9 @@ from .settings import (
     STATE_SUCCESS,
     TITLE,
 )
-from .ui import UI
+from src.systems.audio_manager import AudioManager
+from src.systems.interaction import InteractionSystem
+from src.ui.ui import UI
 
 
 class Game:

@@ -165,3 +165,45 @@ python map_editor.py
 - 2-4 层的安全出口门打开后会黑屏弹出“下了楼，就回不来了哦”。
 - 选择“走吧”进入下一层，选择“等等”留在当前层。
 - 1-3 层下楼后的出生点会自动放在该层安全出口门前。
+
+## Current source layout
+
+```text
+LabMidnight/
+|-- main.py                         # game launcher
+|-- map_editor.py                   # map editor launcher
+|-- src/
+|   |-- settings.py                 # shared constants and tile ids
+|   |-- core/
+|   |   |-- game.py                 # main game loop and state transitions
+|   |   `-- player.py               # player state, movement, inventory
+|   |-- maps/
+|   |   |-- map_data.py             # runtime map loading, floors, doors, objects, collision
+|   |   |-- map_editor.py           # developer map editor
+|   |   `-- MAP_EDITOR_GUIDE.md     # map editor usage guide
+|   |-- rendering/
+|   |   `-- renderer.py             # raycasting, floor/ceiling/object rendering
+|   |-- resources/
+|   |   |-- asset_manager.py        # texture loading and fallback textures
+|   |   `-- object_assets.py        # custom object metadata and texture naming
+|   |-- systems/
+|   |   |-- audio_manager.py        # sound loading/playback
+|   |   `-- interaction.py          # focused target and interaction rules
+|   `-- ui/
+|       |-- ui.py                   # HUD, menu, inventory, prompts
+|       `-- ending.py               # ending titles
+|-- assets/
+|   |-- textures/
+|   |-- objects/                    # custom object folders and object.json
+|   |-- sounds/
+|   |-- sprites/
+|   `-- fonts/
+|-- data/
+|   |-- floors/                     # floor_N.txt and floor_N_rooms.json
+|   |-- map_layout.txt              # legacy floor-4 layout mirror
+|   `-- map_rooms.json              # legacy floor-4 metadata mirror
+|-- requirements.txt
+`-- README.md
+```
+
+Map editor usage is documented in [src/maps/MAP_EDITOR_GUIDE.md](src/maps/MAP_EDITOR_GUIDE.md).
