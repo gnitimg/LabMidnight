@@ -29,6 +29,8 @@ from src.settings import (
     TILE_LAB_DOOR,
     TILE_POWER_DOOR,
     TILE_WALL,
+    TILE_WINDOW,
+    WALL_TILES,
 )
 
 
@@ -362,6 +364,9 @@ class GameMap:
         if symbol in {" ", "#"}:
             self._set_tile(x, y, TILE_WALL)
             return
+        if symbol == "W":
+            self._set_tile(x, y, TILE_WINDOW)
+            return
         if symbol == ".":
             self._set_tile(x, y, TILE_EMPTY)
             return
@@ -615,10 +620,10 @@ class GameMap:
         if width > height:
             return "horizontal"
 
-        west_open = self.tile_at(x - 1, y) != TILE_WALL
-        east_open = self.tile_at(x + 1, y) != TILE_WALL
-        north_open = self.tile_at(x, y - 1) != TILE_WALL
-        south_open = self.tile_at(x, y + 1) != TILE_WALL
+        west_open = self.tile_at(x - 1, y) not in WALL_TILES
+        east_open = self.tile_at(x + 1, y) not in WALL_TILES
+        north_open = self.tile_at(x, y - 1) not in WALL_TILES
+        south_open = self.tile_at(x, y + 1) not in WALL_TILES
         if north_open and south_open and not (west_open and east_open):
             return "horizontal"
         return "vertical"
@@ -655,11 +660,11 @@ class GameMap:
 
     def _is_spawn_floor(self, x: int, y: int) -> bool:
         tile = self.tile_at(x, y)
-        return tile != TILE_WALL and tile not in DOOR_TILES
+        return tile not in WALL_TILES and tile not in DOOR_TILES
 
     def is_solid_cell(self, x: int, y: int) -> bool:
         tile = self.tile_at(x, y)
-        if tile == TILE_WALL:
+        if tile in WALL_TILES:
             return True
         if self.is_ground_exit_tile(x, y):
             return False
@@ -677,7 +682,7 @@ class GameMap:
         for cell_y in range(min_y, max_y + 1):
             for cell_x in range(min_x, max_x + 1):
                 tile = self.tile_at(cell_x, cell_y)
-                if tile == TILE_WALL and self._collides_wall_rect(x, y, cell_x, cell_y, radius_squared):
+                if tile in WALL_TILES and self._collides_wall_rect(x, y, cell_x, cell_y, radius_squared):
                     return False
                 if self.is_ground_exit_tile(cell_x, cell_y):
                     continue

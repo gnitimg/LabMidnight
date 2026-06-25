@@ -35,12 +35,14 @@ from src.settings import (
     VERTICAL_UNITS_PER_TILE,
     VERTICAL_PROJECTION,
     WALL_COLORS,
+    WALL_TILES,
 )
 
 
 DOOR_VISUAL_ASPECT = 1.0 / 3.0
 THIN_PANEL_RENDER_OFFSET = 0.06
-THIN_PANEL_OCCLUSION_SLACK = 0.22
+THIN_PANEL_NEAR_CLIP = 0.01
+THIN_PANEL_OCCLUSION_SLACK = 0.45
 DEFAULT_OCCLUSION_SLACK = 0.04
 
 
@@ -542,7 +544,9 @@ class RaycastingRenderer:
                 texture = self._object_face_texture(asset_id, self._rotated_face(face, obj.rotation))
                 distance_key = (center_x - player.x) ** 2 + (center_y - player.y) ** 2
                 occlusion_slack = THIN_PANEL_OCCLUSION_SLACK if thin_panel else DEFAULT_OCCLUSION_SLACK
-                drawables.append((distance_key, "panel", (texture, p0, p1, bottom_z, object_top_z, side_light, occlusion_slack)))
+                near_clip = THIN_PANEL_NEAR_CLIP if thin_panel else DOOR_PANEL_NEAR_CLIP
+                stable_vertical = thin_panel
+                drawables.append((distance_key, "panel", (texture, p0, p1, bottom_z, object_top_z, side_light, occlusion_slack, near_clip, stable_vertical)))
 
             if not thin_panel:
                 top_texture = self._object_face_texture(asset_id, "top")
@@ -556,7 +560,7 @@ class RaycastingRenderer:
                 texture, points, side_light = payload
                 self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light, object_depth_buffer)
             else:
-                texture, p0, p1, bottom_z, top_z, side_light, occlusion_slack = payload
+                texture, p0, p1, bottom_z, top_z, side_light, occlusion_slack, near_clip, stable_vertical = payload
                 self._draw_world_panel(
                     texture,
                     TILE_WALL,
@@ -570,6 +574,8 @@ class RaycastingRenderer:
                     top_z=top_z,
                     side_light=side_light,
                     occlusion_slack=occlusion_slack,
+                    near_clip=near_clip,
+                    stable_vertical=stable_vertical,
                     object_depth_buffer=object_depth_buffer,
                 )
 
@@ -827,16 +833,16 @@ class RaycastingRenderer:
         max_y = max(ys)
 
         if axis == "x":
-            right_is_wall = any(self.game_map.tile_at(max_x + 1, gy) == TILE_WALL for gy in range(min_y, max_y + 1))
-            left_is_wall = any(self.game_map.tile_at(min_x - 1, gy) == TILE_WALL for gy in range(min_y, max_y + 1))
+            right_is_wall = any(self.game_map.tile_at(max_x + 1, gy) in WALL_TILES for gy in range(min_y, max_y + 1))
+            left_is_wall = any(self.game_map.tile_at(min_x - 1, gy) in WALL_TILES for gy in range(min_y, max_y + 1))
             if right_is_wall:
                 return 1
             if left_is_wall:
                 return -1
             return 1
 
-        down_is_wall = any(self.game_map.tile_at(gx, max_y + 1) == TILE_WALL for gx in range(min_x, max_x + 1))
-        up_is_wall = any(self.game_map.tile_at(gx, min_y - 1) == TILE_WALL for gx in range(min_x, max_x + 1))
+        down_is_wall = any(self.game_map.tile_at(gx, max_y + 1) in WALL_TILES for gx in range(min_x, max_x + 1))
+        up_is_wall = any(self.game_map.tile_at(gx, min_y - 1) in WALL_TILES for gx in range(min_x, max_x + 1))
         if down_is_wall:
             return 1
         if up_is_wall:
@@ -860,13 +866,15 @@ class RaycastingRenderer:
         top_z: float = CEILING_HEIGHT_UNITS,
         side_light: float = 1.0,
         occlusion_slack: float = DEFAULT_OCCLUSION_SLACK,
+        near_clip: float = DOOR_PANEL_NEAR_CLIP,
+        stable_vertical: bool = False,
         object_depth_buffer: list[float] | None = None,
     ) -> None:
         ax, ay, az = self._camera_space(p0[0], p0[1], player)
         bx, by, bz = self._camera_space(p1[0], p1[1], player)
         texture_u0 = max(0.0, min(1.0, texture_start))
         texture_u1 = max(0.0, min(1.0, texture_start + texture_span))
-        near = DOOR_PANEL_NEAR_CLIP
+        near = near_clip
         if az <= near and bz <= near:
             return
         if az <= near:
@@ -888,6 +896,8 @@ class RaycastingRenderer:
             sx0, sx1 = sx1, sx0
             az, bz = bz, az
             texture_u0, texture_u1 = texture_u1, texture_u0
+
+        vertical_distance = max(RAY_NEAR_CLIP, (az + bz) * 0.5) if stable_vertical else None
 
         start_x = max(0, int(math.floor(sx0)))
         end_x = min(SCREEN_WIDTH - 1, int(math.ceil(sx1)))
@@ -913,8 +923,9 @@ class RaycastingRenderer:
             if distance > occlusion_buffer[ray_index] + occlusion_slack:
                 continue
 
-            top_y = horizon - VERTICAL_PROJECTION * (top_z - CAMERA_HEIGHT_UNITS) / distance
-            bottom_y = horizon - VERTICAL_PROJECTION * (bottom_z - CAMERA_HEIGHT_UNITS) / distance
+            height_distance = vertical_distance if vertical_distance is not None else distance
+            top_y = horizon - VERTICAL_PROJECTION * (top_z - CAMERA_HEIGHT_UNITS) / height_distance
+            bottom_y = horizon - VERTICAL_PROJECTION * (bottom_z - CAMERA_HEIGHT_UNITS) / height_distance
             texture_u = (u_over_z0 + (u_over_z1 - u_over_z0) * t) / inv_z
             texture_x = max(0, min(texture_width - 1, int(texture_u * texture_width)))
             slice_info = self._visible_wall_slice(top_y, bottom_y, texture_height)

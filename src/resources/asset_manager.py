@@ -14,6 +14,7 @@ from src.settings import (
     TILE_LAB_DOOR,
     TILE_POWER_DOOR,
     TILE_WALL,
+    TILE_WINDOW,
 )
 
 
@@ -23,6 +24,7 @@ TEXTURE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp")
 TEXTURE_CEILING = "ceiling"
 TEXTURE_FLOOR = "floor"
 TEXTURE_WALL = "wall"
+TEXTURE_WINDOW = "window"
 TEXTURE_DOOR = "door"
 TEXTURE_DOOR_LAB = "door_lab"
 TEXTURE_DOOR_CLASSROOM = "door_classroom"
@@ -31,6 +33,7 @@ TEXTURE_DOOR_EXIT = "door_exit"
 
 TILE_TEXTURES = {
     TILE_WALL: TEXTURE_WALL,
+    TILE_WINDOW: TEXTURE_WINDOW,
     TILE_GUARD_DOOR: TEXTURE_DOOR,
     TILE_LAB_DOOR: TEXTURE_DOOR_LAB,
     TILE_CLASSROOM_DOOR: TEXTURE_DOOR_CLASSROOM,
@@ -53,6 +56,7 @@ class TextureStore:
             TEXTURE_CEILING,
             TEXTURE_FLOOR,
             TEXTURE_WALL,
+            TEXTURE_WINDOW,
             TEXTURE_DOOR,
             TEXTURE_DOOR_LAB,
             TEXTURE_DOOR_CLASSROOM,

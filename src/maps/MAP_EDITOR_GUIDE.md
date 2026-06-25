@@ -62,6 +62,10 @@ Room size must be at least `3 x 3` tiles. Room borders become walls and room int
 
 Paints wall overrides (`#`) on the map.
 
+### Window
+
+Paints wall-height window overrides (`W`) on the map. Window cells block movement like walls but render with `assets/textures/window.png`.
+
 ### Erase
 
 Paints floor overrides (`.`) on the map.
