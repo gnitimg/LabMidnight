@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 import json
 import math
 from pathlib import Path
+import random
 from typing import Iterable
 
 from src.resources.object_assets import ObjectSpec, load_object_specs
@@ -53,6 +54,8 @@ LEGACY_OBJECT_ASSET_ALIASES = {
 LEGACY_OBJECT_SYMBOL_ASSET_ALIASES = {
     "1": "desk",
 }
+ELEMENT_STORY = "story_required"
+ELEMENT_PICKUP = "pickup"
 
 
 def floor_layout_path(floor: int) -> Path:
@@ -122,6 +125,16 @@ class MapObject:
     placement_height: float = 0.0
     rotation: int = 0
     solid: bool = False
+    element_type: str = ELEMENT_STORY
+    pickup_item: str = ""
+    pickup_flag: str = ""
+    interaction_message: str = ""
+    required_item: str = ""
+    required_flag: str = ""
+    failure_message: str = ""
+    remove_on_pickup: bool = False
+    random_drop: bool = False
+    drop_count: int = 1
 
     def footprint_size(self) -> tuple[float, float]:
         normalized = self.rotation % 360
@@ -236,7 +249,7 @@ def _legacy_template_solid(template: MapObject) -> bool:
 
 
 def _object_with_metadata_overrides(obj: MapObject, raw: dict) -> MapObject:
-    updates: dict[str, float] = {}
+    updates: dict[str, object] = {}
     length = _optional_positive_float(raw, "length")
     width = _optional_positive_float(raw, "width")
     height = _optional_positive_float(raw, "height")
@@ -249,6 +262,25 @@ def _object_with_metadata_overrides(obj: MapObject, raw: dict) -> MapObject:
         updates["height"] = height
     if placement_height is not None:
         updates["placement_height"] = placement_height
+    element_type = str(raw.get("element_type", obj.element_type))
+    if element_type in {ELEMENT_STORY, ELEMENT_PICKUP}:
+        updates["element_type"] = element_type
+    for key in ("pickup_item", "pickup_flag", "interaction_message", "required_item", "required_flag", "failure_message"):
+        value = str(raw.get(key, "")).strip()
+        if value:
+            updates[key] = value
+    prompt = str(raw.get("interaction_prompt", "")).strip()
+    if prompt:
+        updates["prompt"] = prompt
+    if "remove_on_pickup" in raw:
+        updates["remove_on_pickup"] = _bool_value(raw.get("remove_on_pickup"))
+    if "random_drop" in raw:
+        updates["random_drop"] = _bool_value(raw.get("random_drop"))
+    if "drop_count" in raw:
+        try:
+            updates["drop_count"] = max(1, int(raw["drop_count"]))
+        except (TypeError, ValueError):
+            pass
     return replace(obj, **updates) if updates else obj
 
 
@@ -268,6 +300,14 @@ def _optional_non_negative_float(payload: dict, key: str) -> float | None:
         return max(0.0, float(payload[key]))
     except (TypeError, ValueError):
         return None
+
+
+def _bool_value(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
 
 
 class GameMap:
@@ -293,6 +333,7 @@ class GameMap:
             self._build_layout()
         self._hydrate_existing_objects()
         self._load_object_metadata()
+        self._apply_random_pickup_drops()
         self._index_door_groups()
 
     def _build_from_layout(self, path: Path) -> None:
@@ -467,6 +508,23 @@ class GameMap:
             elif object_id in self.object_specs:
                 obj = _object_from_spec(self.object_specs[object_id], rotation)
                 self.objects[(x, y)] = _object_with_metadata_overrides(obj, raw)
+
+    def _apply_random_pickup_drops(self) -> None:
+        candidates_by_item: dict[str, list[tuple[tuple[int, int], MapObject]]] = {}
+        for anchor, obj in self.objects.items():
+            if obj.element_type != ELEMENT_PICKUP or not obj.random_drop:
+                continue
+            item_id = obj.pickup_item or obj.object_id
+            candidates_by_item.setdefault(item_id, []).append((anchor, obj))
+
+        for item_id, candidates in candidates_by_item.items():
+            keep_count = max(1, max(obj.drop_count for _anchor, obj in candidates))
+            if keep_count >= len(candidates):
+                continue
+            kept = set(random.sample([anchor for anchor, _obj in candidates], keep_count))
+            for anchor, _obj in candidates:
+                if anchor not in kept:
+                    self.picked_objects.add(anchor)
 
     def _carve_rect(self, x1: int, y1: int, x2: int, y2: int) -> None:
         for y in range(y1, y2 + 1):

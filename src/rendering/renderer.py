@@ -39,6 +39,9 @@ from src.settings import (
 
 
 DOOR_VISUAL_ASPECT = 1.0 / 3.0
+THIN_PANEL_RENDER_OFFSET = 0.06
+THIN_PANEL_OCCLUSION_SLACK = 0.22
+DEFAULT_OCCLUSION_SLACK = 0.04
 
 
 class RaycastingRenderer:
@@ -505,11 +508,12 @@ class RaycastingRenderer:
             x0, y0, x1, y1 = self.game_map.object_bounds(anchor, obj)
             bottom_z = obj.placement_height * VERTICAL_UNITS_PER_TILE
             asset_id = obj.asset_id or obj.object_id
-            object_height = self._object_height_units_from_side_textures(obj, x0, y0, x1, y1)
+            object_height = self._object_height_units(obj)
             object_top_z = bottom_z + object_height
             if object_top_z <= bottom_z:
                 continue
 
+            thin_panel = self._object_is_thin_panel(obj, x0, y0, x1, y1)
             face_data = [
                 ("front", (0.0, 1.0), (x1, y1), (x0, y1), 0.92),
                 ("back", (0.0, -1.0), (x0, y0), (x1, y0), 0.70),
@@ -517,28 +521,42 @@ class RaycastingRenderer:
                 ("right", (1.0, 0.0), (x1, y0), (x1, y1), 0.86),
             ]
             for face, normal, p0, p1, side_light in face_data:
+                face_span = math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+                if thin_panel and face_span <= 0.15:
+                    continue
                 center_x = (p0[0] + p1[0]) * 0.5
                 center_y = (p0[1] + p1[1]) * 0.5
                 to_player_x = player.x - center_x
                 to_player_y = player.y - center_y
                 if to_player_x * normal[0] + to_player_y * normal[1] <= 0:
                     continue
+                if thin_panel:
+                    p0 = (
+                        p0[0] + normal[0] * THIN_PANEL_RENDER_OFFSET,
+                        p0[1] + normal[1] * THIN_PANEL_RENDER_OFFSET,
+                    )
+                    p1 = (
+                        p1[0] + normal[0] * THIN_PANEL_RENDER_OFFSET,
+                        p1[1] + normal[1] * THIN_PANEL_RENDER_OFFSET,
+                    )
                 texture = self._object_face_texture(asset_id, self._rotated_face(face, obj.rotation))
                 distance_key = (center_x - player.x) ** 2 + (center_y - player.y) ** 2
-                drawables.append((distance_key, "panel", (texture, p0, p1, bottom_z, object_top_z, side_light)))
+                occlusion_slack = THIN_PANEL_OCCLUSION_SLACK if thin_panel else DEFAULT_OCCLUSION_SLACK
+                drawables.append((distance_key, "panel", (texture, p0, p1, bottom_z, object_top_z, side_light, occlusion_slack)))
 
-            top_texture = self._object_face_texture(asset_id, "top")
-            top_points = [(x0, y0, object_top_z), (x1, y0, object_top_z), (x1, y1, object_top_z), (x0, y1, object_top_z)]
-            center_x = (x0 + x1) * 0.5
-            center_y = (y0 + y1) * 0.5
-            drawables.append(((center_x - player.x) ** 2 + (center_y - player.y) ** 2, "top", (top_texture, top_points, 0.82)))
+            if not thin_panel:
+                top_texture = self._object_face_texture(asset_id, "top")
+                top_points = [(x0, y0, object_top_z), (x1, y0, object_top_z), (x1, y1, object_top_z), (x0, y1, object_top_z)]
+                center_x = (x0 + x1) * 0.5
+                center_y = (y0 + y1) * 0.5
+                drawables.append(((center_x - player.x) ** 2 + (center_y - player.y) ** 2, "top", (top_texture, top_points, 0.82)))
 
         for _, kind, payload in sorted(drawables, key=lambda item: item[0], reverse=True):
             if kind == "top":
                 texture, points, side_light = payload
                 self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light, object_depth_buffer)
             else:
-                texture, p0, p1, bottom_z, top_z, side_light = payload
+                texture, p0, p1, bottom_z, top_z, side_light, occlusion_slack = payload
                 self._draw_world_panel(
                     texture,
                     TILE_WALL,
@@ -551,36 +569,19 @@ class RaycastingRenderer:
                     bottom_z=bottom_z,
                     top_z=top_z,
                     side_light=side_light,
+                    occlusion_slack=occlusion_slack,
                     object_depth_buffer=object_depth_buffer,
                 )
 
-    def _object_height_units_from_side_textures(self, obj, x0: float, y0: float, x1: float, y1: float) -> float:
-        asset_id = obj.asset_id or obj.object_id
-        length = max(0.05, x1 - x0)
-        width = max(0.05, y1 - y0)
-        face_spans = (
-            ("front", length),
-            ("back", length),
-            ("left", width),
-            ("right", width),
-        )
-        height_candidates: list[float] = []
-        for face, span in face_spans:
-            texture = self.textures.for_object_face(asset_id, face)
-            if texture is None:
-                continue
-            texture_width, texture_height = texture.get_size()
-            if texture_width <= 0 or texture_height <= 0:
-                continue
-            height_candidates.append(span * texture_height / texture_width)
+    def _object_height_units(self, obj) -> float:
+        return max(0.05, obj.height) * VERTICAL_UNITS_PER_TILE
 
-        editor_height = max(0.05, obj.height)
-        if not height_candidates:
-            return editor_height * VERTICAL_UNITS_PER_TILE
-
-        height_candidates.sort()
-        height_tiles = min(editor_height, height_candidates[(len(height_candidates) - 1) // 2])
-        return max(0.05, height_tiles) * VERTICAL_UNITS_PER_TILE
+    def _object_is_thin_panel(self, obj, x0: float, y0: float, x1: float, y1: float) -> bool:
+        footprint_width = max(0.0, x1 - x0)
+        footprint_depth = max(0.0, y1 - y0)
+        thin_side = min(footprint_width, footprint_depth)
+        long_side = max(footprint_width, footprint_depth)
+        return obj.placement_height > 0.0 and thin_side <= 0.15 and long_side >= 1.0
 
     def _object_face_texture(self, object_id: str, face: str) -> pygame.Surface:
         texture = self.textures.for_object_face(object_id, face)
@@ -858,6 +859,7 @@ class RaycastingRenderer:
         bottom_z: float = 0.0,
         top_z: float = CEILING_HEIGHT_UNITS,
         side_light: float = 1.0,
+        occlusion_slack: float = DEFAULT_OCCLUSION_SLACK,
         object_depth_buffer: list[float] | None = None,
     ) -> None:
         ax, ay, az = self._camera_space(p0[0], p0[1], player)
@@ -908,7 +910,7 @@ class RaycastingRenderer:
                 continue
             distance = max(RAY_NEAR_CLIP, 1.0 / inv_z)
             ray_index = min(NUM_RAYS - 1, max(0, int(screen_x * NUM_RAYS / SCREEN_WIDTH)))
-            if distance > occlusion_buffer[ray_index] + 0.04:
+            if distance > occlusion_buffer[ray_index] + occlusion_slack:
                 continue
 
             top_y = horizon - VERTICAL_PROJECTION * (top_z - CAMERA_HEIGHT_UNITS) / distance

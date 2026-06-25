@@ -1,6 +1,5 @@
 {
   "tile_size_cm": 60,
-  "cell_scale": 1.0,
   "floor": 2,
   "grid_width": 76,
   "grid_height": 24,

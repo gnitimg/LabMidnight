@@ -34,17 +34,9 @@ Use the floor buttons in the right panel to edit floors `1` through `4`.
 - Floor metadata is saved as `data/floors/floor_N_rooms.json`.
 - Floor 4 also updates the legacy files `data/map_layout.txt` and `data/map_rooms.json` for compatibility.
 
-## Map Scale And View Zoom
+## View Zoom
 
 One base map cell is one floor tile: `60 cm x 60 cm`.
-
-Use the `Map Scale` slider in the right properties panel to resample the current floor. Available values are `0.5`, `1`, `2`, `3`, and `5`.
-
-- `0.5` shrinks the current map.
-- `1` returns the map to normal scale relative to the current saved scale.
-- `2`, `3`, and `5` subdivide each cell into more editable cells.
-- Walls, floors, doors, objects, and the start point are converted.
-- Object footprints are scaled horizontally. Object height and placement height stay unchanged.
 
 Use the mouse wheel over the center canvas to zoom the editor view. This changes only the on-screen cell size and does not alter saved map data.
 
@@ -117,6 +109,21 @@ When an object is selected, the right panel exposes instance placement fields:
 
 Changing `Len` and `Wid` changes the object's occupied footprint. The editor rejects values that would overlap walls, doors, the start point, or another object.
 The occupied footprint is filled on the canvas and the object's symbol is drawn at the center of that footprint.
+
+### Element Binding
+
+Selected objects can also be configured as gameplay elements in the right panel.
+
+- Story elements are fixed plot objects. They can grant an item and set a story flag in the same interaction.
+- Pickup elements are optional pickable objects. Enable `Random drop` and set `Count` to keep only that many objects for the same item on the current floor.
+- `Item` is the inventory id granted by the interaction, such as `battery`, `fuse`, or `access_card`.
+- `Flag` is the player flag set by the interaction, such as `got_blackboard_clue`.
+- `Prompt` overrides the on-screen interaction prompt.
+- `Message` overrides the message shown after interaction.
+- `Need Item` requires an inventory item before the interaction can trigger.
+- `Need Flag` requires an existing player flag before the interaction can trigger.
+- `Fail Msg` overrides the message shown when a required item or flag is missing.
+- `Remove after pickup` hides the object after a successful pickup or story trigger.
 
 Rotate object placement:
 

@@ -135,9 +135,72 @@ class InteractionSystem:
         game.audio.play("error")
         return "打不开。"
 
+    def _interact_configured_object(self, game, cell: tuple[int, int], obj) -> str | None:
+        has_binding = (
+            obj.element_type == "pickup"
+            or bool(obj.pickup_item)
+            or bool(obj.pickup_flag)
+            or bool(obj.interaction_message)
+            or bool(obj.required_item)
+            or bool(obj.required_flag)
+            or bool(obj.failure_message)
+            or bool(obj.remove_on_pickup)
+        )
+        if not has_binding:
+            return None
+
+        player = game.player
+        if obj.required_item and not player.has_item(obj.required_item):
+            game.audio.play("error")
+            return obj.failure_message or f"Need {obj.required_item}."
+        if obj.required_flag and not player.flags.get(obj.required_flag, False):
+            game.audio.play("error")
+            return obj.failure_message or f"Story condition not met: {obj.required_flag}."
+
+        item_id = obj.pickup_item.strip() if obj.pickup_item else ""
+        if obj.element_type == "pickup" and not item_id:
+            item_id = obj.object_id
+
+        gained_item = False
+        if item_id == "battery":
+            player.add_item(item_id)
+            player.restore_flashlight(BATTERY_RESTORE)
+            gained_item = True
+        elif item_id and not player.has_item(item_id):
+            player.add_item(item_id)
+            gained_item = True
+            if item_id == "flashlight":
+                player.flashlight_on = True
+
+        flag_set = False
+        if obj.pickup_flag:
+            player.flags[obj.pickup_flag] = True
+            flag_set = True
+
+        if obj.remove_on_pickup and (gained_item or flag_set or not item_id):
+            self.game_map.remove_object(*cell)
+
+        if gained_item or flag_set:
+            game.audio.play("item_pick")
+            if obj.interaction_message:
+                return obj.interaction_message
+            if item_id and obj.pickup_flag:
+                return f"Picked up {item_id}. Story flag set: {obj.pickup_flag}."
+            if item_id:
+                return f"Picked up {item_id}."
+            return "Story state updated."
+
+        if item_id and player.has_item(item_id):
+            return obj.interaction_message or f"{item_id} already picked up."
+
+        return obj.interaction_message or obj.description or "Nothing else here."
+
     def _interact_object(self, game, cell: tuple[int, int], obj) -> str:
         player = game.player
         x, y = cell
+        configured = self._interact_configured_object(game, cell, obj)
+        if configured is not None:
+            return configured
 
         if obj.object_id in {"lab_desk", "desk"}:
             gained = []
