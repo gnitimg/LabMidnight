@@ -139,7 +139,7 @@ class InteractionSystem:
         player = game.player
         x, y = cell
 
-        if obj.object_id == "lab_desk":
+        if obj.object_id in {"lab_desk", "desk"}:
             gained = []
             if not player.has_item("flashlight"):
                 player.add_item("flashlight")

@@ -16,6 +16,7 @@ from src.settings import (
     DOOR_OPEN_SPEED,
     DOOR_PASSABLE_PROGRESS,
     DOOR_TILES,
+    OBJECT_COLLISION_RADIUS,
     PLAYER_RADIUS,
     TILE_CLASSROOM_DOOR,
     TILE_EMPTY,
@@ -41,6 +42,13 @@ SOLID_TEMPLATE_OBJECT_IDS = {
     "power_box",
     "server_terminal",
     "exit_panel",
+}
+
+LEGACY_OBJECT_ASSET_ALIASES = {
+    "lab_desk": "desk",
+}
+LEGACY_OBJECT_SYMBOL_ASSET_ALIASES = {
+    "1": "desk",
 }
 
 
@@ -190,6 +198,9 @@ def _object_from_spec(spec: ObjectSpec, rotation: int = 0) -> MapObject:
 
 def _template_with_asset(template: MapObject, specs: dict[str, ObjectSpec], rotation: int = 0) -> MapObject:
     spec = specs.get(template.object_id)
+    if spec is None:
+        alias = LEGACY_OBJECT_ASSET_ALIASES.get(template.object_id)
+        spec = specs.get(alias) if alias is not None else None
     if spec is None:
         return replace(
             template,
@@ -609,7 +620,8 @@ class GameMap:
         for anchor, obj in self.objects.items():
             if anchor in self.picked_objects or not obj.solid:
                 continue
-            if self._collides_object_rect(x, y, anchor, obj, radius_squared):
+            object_radius_squared = OBJECT_COLLISION_RADIUS * OBJECT_COLLISION_RADIUS
+            if self._collides_object_rect(x, y, anchor, obj, object_radius_squared):
                 return False
         return True
 

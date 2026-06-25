@@ -34,6 +34,20 @@ Use the floor buttons in the right panel to edit floors `1` through `4`.
 - Floor metadata is saved as `data/floors/floor_N_rooms.json`.
 - Floor 4 also updates the legacy files `data/map_layout.txt` and `data/map_rooms.json` for compatibility.
 
+## Map Scale And View Zoom
+
+One base map cell is one floor tile: `60 cm x 60 cm`.
+
+Use the `Map Scale` slider in the right properties panel to resample the current floor. Available values are `0.5`, `1`, `2`, `3`, and `5`.
+
+- `0.5` shrinks the current map.
+- `1` returns the map to normal scale relative to the current saved scale.
+- `2`, `3`, and `5` subdivide each cell into more editable cells.
+- Walls, floors, doors, objects, and the start point are converted.
+- Object footprints are scaled horizontally. Object height and placement height stay unchanged.
+
+Use the mouse wheel over the center canvas to zoom the editor view. This changes only the on-screen cell size and does not alter saved map data.
+
 ## Tools
 
 ### Select
@@ -161,6 +175,8 @@ Missing metadata or textures fall back safely.
 - `Ctrl+S` or `Save Ctrl+S`: save the current floor.
 - `Reload Ctrl+L`: reload the current floor from disk.
 - `Clear Map`: reset the current floor to one `3 x 3` start room, one spawn point, and walls elsewhere. This does not save until you explicitly save.
+- `Ctrl+Z`: undo the previous edit.
+- `Ctrl+Shift+Z`: redo the previous undone edit.
 
 ## Runtime Notes
 

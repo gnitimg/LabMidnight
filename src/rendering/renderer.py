@@ -15,6 +15,7 @@ from src.resources.asset_manager import TEXTURE_CEILING, TEXTURE_FLOOR, TextureS
 from src.settings import (
     CAMERA_HEIGHT_UNITS,
     CEILING_HEIGHT_UNITS,
+    CEILING_TEXTURE_TILE_SPAN,
     COLOR_BLACK,
     DELTA_ANGLE,
     DOOR_PANEL_NEAR_CLIP,
@@ -35,6 +36,9 @@ from src.settings import (
     VERTICAL_PROJECTION,
     WALL_COLORS,
 )
+
+
+DOOR_VISUAL_ASPECT = 1.0 / 3.0
 
 
 class RaycastingRenderer:
@@ -211,8 +215,9 @@ class RaycastingRenderer:
             texture_width, texture_height = texture_array.shape[0], texture_array.shape[1]
             world_x = start_x[row_indices, None] + step_x[row_indices, None] * xs[None, :]
             world_y = start_y[row_indices, None] + step_y[row_indices, None] * xs[None, :]
-            texture_x = np.mod((world_x * texture_width).astype(np.int32), texture_width)
-            texture_y = np.mod((world_y * texture_height).astype(np.int32), texture_height)
+            texture_span = CEILING_TEXTURE_TILE_SPAN if is_ceiling else 1.0
+            texture_x = np.mod((world_x / texture_span * texture_width).astype(np.int32), texture_width)
+            texture_y = np.mod((world_y / texture_span * texture_height).astype(np.int32), texture_height)
             output[row_indices, :, :] = texture_array[texture_x, texture_y]
 
         light = self._floor_light(row_distance, player, is_ceiling=is_ceiling, sample_width=sample_width, xs=xs)
@@ -316,10 +321,11 @@ class RaycastingRenderer:
                 step_y = row_distance * (ray_dir_y1 - ray_dir_y0) / sample_width
                 world_x = player.x + row_distance * ray_dir_x0
                 world_y = player.y + row_distance * ray_dir_y0
+                texture_span = CEILING_TEXTURE_TILE_SPAN if is_ceiling else 1.0
 
                 for sample_x in range(sample_width):
-                    texture_x = int(world_x * texture_width) % texture_width
-                    texture_y = int(world_y * texture_height) % texture_height
+                    texture_x = int(world_x / texture_span * texture_width) % texture_width
+                    texture_y = int(world_y / texture_span * texture_height) % texture_height
                     pixel_sample[sample_x, sample_y] = texture_pixels[texture_y][texture_x]
                     world_x += step_x
                     world_y += step_y
@@ -408,12 +414,14 @@ class RaycastingRenderer:
 
             tile = self.game_map.tile_at(map_x, map_y)
             if tile in DOOR_TILES:
-                if not self.game_map.is_open_door(map_x, map_y):
-                    door_hit = self._door_plane_hit(x, y, ray_dir_x, ray_dir_y, map_x, map_y)
-                    if door_hit is not None:
-                        hit_distance, door_hit_x, door_hit_y, door_side, door_texture_offset = door_hit
-                        projected_distance = max(RAY_NEAR_CLIP, min(MAX_DEPTH, hit_distance))
-                        return projected_distance, tile, door_hit_x, door_hit_y, door_side, (map_x, map_y), door_texture_offset
+                door_hit = self._door_plane_hit(x, y, ray_dir_x, ray_dir_y, map_x, map_y)
+                if door_hit is not None:
+                    hit_distance, door_hit_x, door_hit_y, door_side, door_texture_offset, is_visual_door = door_hit
+                    if self.game_map.is_open_door(map_x, map_y) and is_visual_door:
+                        continue
+                    projected_distance = max(RAY_NEAR_CLIP, min(MAX_DEPTH, hit_distance))
+                    render_tile = tile if is_visual_door and not self.game_map.is_open_door(map_x, map_y) else TILE_WALL
+                    return projected_distance, render_tile, door_hit_x, door_hit_y, door_side, (map_x, map_y), door_texture_offset
                 continue
 
             if self.game_map.is_solid_cell(map_x, map_y):
@@ -440,7 +448,7 @@ class RaycastingRenderer:
         ray_dir_y: float,
         cell_x: int,
         cell_y: int,
-    ) -> tuple[float, float, float, int, float] | None:
+    ) -> tuple[float, float, float, int, float, bool] | None:
         group = self.game_map.door_group_at(cell_x, cell_y)
         xs = [x for x, _ in group]
         ys = [y for _, y in group]
@@ -459,8 +467,12 @@ class RaycastingRenderer:
             hit_x = origin_x + ray_dir_x * distance
             if not (min_x <= hit_x <= max_x + 1.0):
                 return None
-            texture_offset = (hit_x - min_x) / max(1.0, max_x - min_x + 1.0)
-            return abs(distance), hit_x, plane_y, 1, max(0.0, min(0.999, texture_offset))
+            visual_start, visual_end = self._door_visual_span(min_x, max_x)
+            if visual_start <= hit_x <= visual_end:
+                texture_offset = (hit_x - visual_start) / max(0.001, visual_end - visual_start)
+                return abs(distance), hit_x, plane_y, 1, max(0.0, min(0.999, texture_offset)), True
+            wall_offset = (hit_x - math.floor(hit_x)) % 1.0
+            return abs(distance), hit_x, plane_y, 1, max(0.0, min(0.999, wall_offset)), False
 
         if abs(ray_dir_x) <= 1e-8:
             return None
@@ -471,8 +483,18 @@ class RaycastingRenderer:
         hit_y = origin_y + ray_dir_y * distance
         if not (min_y <= hit_y <= max_y + 1.0):
             return None
-        texture_offset = (hit_y - min_y) / max(1.0, max_y - min_y + 1.0)
-        return abs(distance), plane_x, hit_y, 0, max(0.0, min(0.999, texture_offset))
+        visual_start, visual_end = self._door_visual_span(min_y, max_y)
+        if visual_start <= hit_y <= visual_end:
+            texture_offset = (hit_y - visual_start) / max(0.001, visual_end - visual_start)
+            return abs(distance), plane_x, hit_y, 0, max(0.0, min(0.999, texture_offset)), True
+        wall_offset = (hit_y - math.floor(hit_y)) % 1.0
+        return abs(distance), plane_x, hit_y, 0, max(0.0, min(0.999, wall_offset)), False
+
+    def _door_visual_span(self, min_cell: int, max_cell: int) -> tuple[float, float]:
+        total_span = max(1.0, max_cell - min_cell + 1.0)
+        visual_span = min(total_span, max(0.18, CEILING_HEIGHT_UNITS * DOOR_VISUAL_ASPECT))
+        start = min_cell + (total_span - visual_span) * 0.5
+        return start, start + visual_span
 
     def _draw_objects(self, player, elapsed: float, horizon: int, depth_buffer: list[float]) -> None:
         panels: list[tuple[float, pygame.Surface, str, tuple[float, float], tuple[float, float], float, float, float]] = []
@@ -482,8 +504,10 @@ class RaycastingRenderer:
                 continue
             x0, y0, x1, y1 = self.game_map.object_bounds(anchor, obj)
             bottom_z = obj.placement_height * VERTICAL_UNITS_PER_TILE
-            top_z = (obj.placement_height + obj.height) * VERTICAL_UNITS_PER_TILE
-            if top_z <= bottom_z:
+            asset_id = obj.asset_id or obj.object_id
+            object_height = self._object_height_units_from_side_textures(obj, x0, y0, x1, y1)
+            object_top_z = bottom_z + object_height
+            if object_top_z <= bottom_z:
                 continue
 
             face_data = [
@@ -499,15 +523,18 @@ class RaycastingRenderer:
                 to_player_y = player.y - center_y
                 if to_player_x * normal[0] + to_player_y * normal[1] <= 0:
                     continue
-                texture = self._object_face_texture(obj.asset_id or obj.object_id, self._rotated_face(face, obj.rotation))
+                texture = self._object_face_texture(asset_id, face)
                 distance_key = (center_x - player.x) ** 2 + (center_y - player.y) ** 2
-                panels.append((distance_key, texture, face, p0, p1, bottom_z, top_z, side_light))
+                panels.append((distance_key, texture, face, p0, p1, bottom_z, object_top_z, side_light))
 
-            top_texture = self._object_face_texture(obj.asset_id or obj.object_id, "top")
-            top_points = [(x0, y0, top_z), (x1, y0, top_z), (x1, y1, top_z), (x0, y1, top_z)]
+            top_texture = self._object_face_texture(asset_id, "top")
+            top_points = [(x0, y0, object_top_z), (x1, y0, object_top_z), (x1, y1, object_top_z), (x0, y1, object_top_z)]
             center_x = (x0 + x1) * 0.5
             center_y = (y0 + y1) * 0.5
             tops.append(((center_x - player.x) ** 2 + (center_y - player.y) ** 2, top_texture, top_points, 0.82))
+
+        for _, texture, points, side_light in sorted(tops, key=lambda item: item[0], reverse=True):
+            self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light)
 
         for _, texture, _face, p0, p1, bottom_z, top_z, side_light in sorted(panels, key=lambda item: item[0], reverse=True):
             self._draw_world_panel(
@@ -524,8 +551,33 @@ class RaycastingRenderer:
                 side_light=side_light,
             )
 
-        for _, texture, points, side_light in sorted(tops, key=lambda item: item[0], reverse=True):
-            self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light)
+    def _object_height_units_from_side_textures(self, obj, x0: float, y0: float, x1: float, y1: float) -> float:
+        asset_id = obj.asset_id or obj.object_id
+        length = max(0.05, x1 - x0)
+        width = max(0.05, y1 - y0)
+        face_spans = (
+            ("front", length),
+            ("back", length),
+            ("left", width),
+            ("right", width),
+        )
+        height_candidates: list[float] = []
+        for face, span in face_spans:
+            texture = self.textures.for_object_face(asset_id, face)
+            if texture is None:
+                continue
+            texture_width, texture_height = texture.get_size()
+            if texture_width <= 0 or texture_height <= 0:
+                continue
+            height_candidates.append(span * texture_height / texture_width)
+
+        editor_height = max(0.05, obj.height)
+        if not height_candidates:
+            return editor_height * VERTICAL_UNITS_PER_TILE
+
+        height_candidates.sort()
+        height_tiles = min(editor_height, height_candidates[(len(height_candidates) - 1) // 2])
+        return max(0.05, height_tiles) * VERTICAL_UNITS_PER_TILE
 
     def _object_face_texture(self, object_id: str, face: str) -> pygame.Surface:
         texture = self.textures.for_object_face(object_id, face)
@@ -560,13 +612,22 @@ class RaycastingRenderer:
         depth_buffer: list[float],
         side_light: float,
     ) -> None:
-        projected: list[tuple[float, float, float]] = []
-        for x, y, z in points:
+        if not points:
+            return
+        near = DOOR_PANEL_NEAR_CLIP
+        camera_points: list[tuple[float, float]] = []
+        for x, y, _z in points:
             right, _unused, forward = self._camera_space(x, y, player)
-            if forward <= DOOR_PANEL_NEAR_CLIP:
-                return
+            camera_points.append((right, forward))
+        clipped_points = self._clip_camera_polygon_near(camera_points, near)
+        if len(clipped_points) < 3:
+            return
+
+        top_z = points[0][2]
+        projected: list[tuple[float, float, float]] = []
+        for right, forward in clipped_points:
             screen_x = HALF_WIDTH + right / forward * VERTICAL_PROJECTION
-            screen_y = horizon - VERTICAL_PROJECTION * (z - CAMERA_HEIGHT_UNITS) / forward
+            screen_y = horizon - VERTICAL_PROJECTION * (top_z - CAMERA_HEIGHT_UNITS) / forward
             projected.append((screen_x, screen_y, forward))
 
         min_x = max(0, int(math.floor(min(point[0] for point in projected))))
@@ -581,17 +642,36 @@ class RaycastingRenderer:
             return
 
         target = pygame.Rect(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
-        if target.width > SCREEN_WIDTH * 0.9 or target.height > SCREEN_HEIGHT * 0.9:
-            return
         patch = pygame.transform.smoothscale(texture, target.size).convert_alpha()
         shade = self._shade_factor(center_distance, player.angle, player, elapsed) * side_light
         shade_value = max(0, min(255, int(255 * min(1.0, shade))))
-        patch.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
+        patch.fill((shade_value, shade_value, shade_value, 255), special_flags=pygame.BLEND_RGBA_MULT)
         mask = pygame.Surface(target.size, pygame.SRCALPHA)
         polygon = [(int(x - target.x), int(y - target.y)) for x, y, _forward in projected]
         pygame.draw.polygon(mask, (255, 255, 255, 255), polygon)
         patch.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         self.screen.blit(patch, target)
+
+    def _clip_camera_polygon_near(self, points: list[tuple[float, float]], near: float) -> list[tuple[float, float]]:
+        if not points:
+            return []
+
+        clipped: list[tuple[float, float]] = []
+        previous = points[-1]
+        previous_inside = previous[1] >= near
+        for current in points:
+            current_inside = current[1] >= near
+            if current_inside != previous_inside:
+                delta_forward = current[1] - previous[1]
+                if abs(delta_forward) > 1e-8:
+                    t = (near - previous[1]) / delta_forward
+                    right = previous[0] + (current[0] - previous[0]) * t
+                    clipped.append((right, near))
+            if current_inside:
+                clipped.append(current)
+            previous = current
+            previous_inside = current_inside
+        return clipped
 
     def _draw_open_doors(self, player, elapsed: float, horizon: int, depth_buffer: list[float]) -> None:
         drawn: set[frozenset[tuple[int, int]]] = set()
@@ -643,33 +723,35 @@ class RaycastingRenderer:
         orientation = self.game_map.door_orientation_at(x, y)
 
         if orientation == "horizontal":
-            total_span = max(1.0, max_x - min_x + 1.0)
-            rest_span = min(DOOR_OPEN_REST_WIDTH, total_span)
-            visible_width = max(rest_span, total_span - (total_span - rest_span) * eased)
+            visual_start, visual_end = self._door_visual_span(min_x, max_x)
+            visual_span = visual_end - visual_start
+            rest_span = min(DOOR_OPEN_REST_WIDTH, visual_span)
+            visible_width = max(rest_span, visual_span - (visual_span - rest_span) * eased)
             direction = self._door_slide_direction(x, y, axis="x")
             y_plane = min_y + 0.5
             if direction >= 0:
-                start = min_x + total_span - visible_width
-                texture_start = (total_span - visible_width) / total_span
+                start = visual_end - visible_width
+                texture_start = (visual_span - visible_width) / visual_span
             else:
-                start = float(min_x)
+                start = visual_start
                 texture_start = 0.0
-            texture_span = visible_width / total_span
+            texture_span = visible_width / visual_span
             p0 = (start, y_plane)
             p1 = (start + visible_width, y_plane)
         else:
-            total_span = max(1.0, max_y - min_y + 1.0)
-            rest_span = min(DOOR_OPEN_REST_WIDTH, total_span)
-            visible_width = max(rest_span, total_span - (total_span - rest_span) * eased)
+            visual_start, visual_end = self._door_visual_span(min_y, max_y)
+            visual_span = visual_end - visual_start
+            rest_span = min(DOOR_OPEN_REST_WIDTH, visual_span)
+            visible_width = max(rest_span, visual_span - (visual_span - rest_span) * eased)
             direction = self._door_slide_direction(x, y, axis="y")
             x_plane = min_x + 0.5
             if direction >= 0:
-                start = min_y + total_span - visible_width
-                texture_start = (total_span - visible_width) / total_span
+                start = visual_end - visible_width
+                texture_start = (visual_span - visible_width) / visual_span
             else:
-                start = float(min_y)
+                start = visual_start
                 texture_start = 0.0
-            texture_span = visible_width / total_span
+            texture_span = visible_width / visual_span
             p0 = (x_plane, start)
             p1 = (x_plane, start + visible_width)
 
@@ -731,26 +813,26 @@ class RaycastingRenderer:
     ) -> None:
         ax, ay, az = self._camera_space(p0[0], p0[1], player)
         bx, by, bz = self._camera_space(p1[0], p1[1], player)
+        texture_u0 = max(0.0, min(1.0, texture_start))
+        texture_u1 = max(0.0, min(1.0, texture_start + texture_span))
         near = DOOR_PANEL_NEAR_CLIP
         if az <= near and bz <= near:
             return
         if az <= near:
             t = (near - az) / (bz - az)
             ax = ax + (bx - ax) * t
+            texture_u0 = texture_u0 + (texture_u1 - texture_u0) * t
             az = near
         elif bz <= near:
             t = (near - bz) / (az - bz)
             bx = bx + (ax - bx) * t
+            texture_u1 = texture_u1 + (texture_u0 - texture_u1) * t
             bz = near
 
         sx0 = HALF_WIDTH + ax / az * VERTICAL_PROJECTION
         sx1 = HALF_WIDTH + bx / bz * VERTICAL_PROJECTION
         if abs(sx1 - sx0) < 1.0:
             return
-        if abs(sx1 - sx0) > SCREEN_WIDTH * 0.88:
-            return
-        texture_u0 = max(0.0, min(1.0, texture_start))
-        texture_u1 = max(0.0, min(1.0, texture_start + texture_span))
         if sx0 > sx1:
             sx0, sx1 = sx1, sx0
             az, bz = bz, az
@@ -763,18 +845,25 @@ class RaycastingRenderer:
 
         texture_width, texture_height = texture.get_size()
         span = max(1.0, sx1 - sx0)
+        inv_z0 = 1.0 / max(RAY_NEAR_CLIP, az)
+        inv_z1 = 1.0 / max(RAY_NEAR_CLIP, bz)
+        u_over_z0 = texture_u0 * inv_z0
+        u_over_z1 = texture_u1 * inv_z1
         for screen_x in range(start_x, end_x + 1):
             t = (screen_x - sx0) / span
             if not 0.0 <= t <= 1.0:
                 continue
-            distance = max(RAY_NEAR_CLIP, az + (bz - az) * t)
+            inv_z = inv_z0 + (inv_z1 - inv_z0) * t
+            if inv_z <= 1e-6:
+                continue
+            distance = max(RAY_NEAR_CLIP, 1.0 / inv_z)
             ray_index = min(NUM_RAYS - 1, max(0, int(screen_x * NUM_RAYS / SCREEN_WIDTH)))
             if distance > depth_buffer[ray_index] + 0.04:
                 continue
 
             top_y = horizon - VERTICAL_PROJECTION * (top_z - CAMERA_HEIGHT_UNITS) / distance
             bottom_y = horizon - VERTICAL_PROJECTION * (bottom_z - CAMERA_HEIGHT_UNITS) / distance
-            texture_u = texture_u0 + (texture_u1 - texture_u0) * t
+            texture_u = (u_over_z0 + (u_over_z1 - u_over_z0) * t) / inv_z
             texture_x = max(0, min(texture_width - 1, int(texture_u * texture_width)))
             slice_info = self._visible_wall_slice(top_y, bottom_y, texture_height)
             if slice_info is None:
@@ -785,7 +874,10 @@ class RaycastingRenderer:
             column = pygame.transform.scale(column, (2, visible_height))
             shade = self._shade_factor(distance, player.angle, player, elapsed) * side_light
             shade_value = max(0, min(255, int(255 * min(1.0, shade))))
-            column.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
+            if column.get_flags() & pygame.SRCALPHA:
+                column.fill((shade_value, shade_value, shade_value, 255), special_flags=pygame.BLEND_RGBA_MULT)
+            else:
+                column.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
             self.screen.blit(column, (screen_x, visible_top))
 
     def _visible_wall_span(self, top_y: float, bottom_y: float) -> tuple[int, int] | None:

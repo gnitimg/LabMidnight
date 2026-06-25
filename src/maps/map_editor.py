@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
 import json
+import math
 from pathlib import Path
 import sys
 from typing import Iterable
@@ -32,12 +33,17 @@ TOOLBAR_WIDTH = 220
 PANEL_WIDTH = 300
 STATUS_HEIGHT = 34
 CELL_SIZE = 20
+MIN_VIEW_CELL_SIZE = 8
+MAX_VIEW_CELL_SIZE = 48
+VIEW_ZOOM_STEP = 1.14
 H_SCROLLBAR_HEIGHT = 18
 H_SCROLLBAR_MIN_THUMB_WIDTH = 36
 V_SCROLLBAR_WIDTH = 10
 V_SCROLLBAR_MIN_THUMB_HEIGHT = 36
 SIDE_SCROLL_STEP = 42
 OBJECT_HANDLE_SIZE = 8
+HISTORY_LIMIT = 80
+MAP_SCALE_VALUES = (0.5, 1.0, 2.0, 3.0, 5.0)
 MIN_ROOM_SIZE = 3
 DEFAULT_GRID_WIDTH = 40
 DEFAULT_GRID_HEIGHT = 24
@@ -85,6 +91,9 @@ OBJECT_LABELS = {
 }
 
 LEGACY_OBJECT_IDS = set(OBJECT_LABELS)
+LEGACY_OBJECT_ASSET_ALIASES = {
+    "1": "desk",
+}
 
 OBJECT_NUMERIC_FIELDS = {
     "object_x",
@@ -159,6 +168,7 @@ class MapEditorState:
         self.floor = max(BOTTOM_FLOOR, min(TOP_FLOOR, floor))
         self.grid_width = DEFAULT_GRID_WIDTH
         self.grid_height = DEFAULT_GRID_HEIGHT
+        self.cell_scale = 1.0
         self.initial_hp = 100
         self.initial_sanity = 100
         self.initial_battery = 86
@@ -209,9 +219,10 @@ class MapEditorState:
                 elif char == "@":
                     state.start_cell = (x, y)
                 elif char in "123456789":
-                    state.objects[(x, y)] = ObjectPlacement(char)
+                    state.objects[(x, y)] = ObjectPlacement(state._object_id_for_layout_symbol(char))
 
         state.rooms = state._load_room_metadata()
+        state.cell_scale = state._load_cell_scale()
         if not state.rooms:
             state.rooms = state._infer_rooms_from_rows(padded)
         state.overrides = state._load_overrides()
@@ -220,6 +231,12 @@ class MapEditorState:
         state.rebuild_grid()
         state.status = f"Loaded floor {state.floor}: {layout_path}."
         return state
+
+    def _object_id_for_layout_symbol(self, symbol: str) -> str:
+        alias = LEGACY_OBJECT_ASSET_ALIASES.get(symbol)
+        if alias is not None and alias in self.object_specs:
+            return alias
+        return symbol
 
     def _load_initial_config(self) -> None:
         if not MAP_CONFIG_PATH.exists():
@@ -266,6 +283,20 @@ class MapEditorState:
             rooms.append(room)
         return rooms
 
+    def _load_cell_scale(self) -> float:
+        meta_path = existing_room_meta_path_for_floor(self.floor)
+        if not meta_path.exists():
+            return 1.0
+        try:
+            payload = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return 1.0
+        try:
+            raw_value = float(payload.get("cell_scale", 1.0))
+        except (TypeError, ValueError):
+            return 1.0
+        return min(MAP_SCALE_VALUES, key=lambda value: abs(value - raw_value))
+
     def _load_overrides(self) -> dict[tuple[int, int], str]:
         meta_path = existing_room_meta_path_for_floor(self.floor)
         if not meta_path.exists():
@@ -308,6 +339,9 @@ class MapEditorState:
             object_id = str(raw.get("object_id") or raw.get("symbol") or raw.get("asset_id") or "")
             if not object_id:
                 continue
+            alias = LEGACY_OBJECT_ASSET_ALIASES.get(object_id)
+            if alias is not None and alias in self.object_specs:
+                object_id = alias
             try:
                 rotation = int(raw.get("rotation", 0)) % 360
             except (TypeError, ValueError):
@@ -482,6 +516,110 @@ class MapEditorState:
         elif clipped_room_count:
             detail = f" Clipped {clipped_room_count} room(s) at bounds."
         self.status = f"Grid resized to {self.grid_width} x {self.grid_height}.{detail}"
+
+    def scale_existing_cells(self, factor: int) -> None:
+        self.set_cell_scale(float(factor))
+
+    def set_cell_scale(self, target_scale: float) -> bool:
+        target_scale = min(MAP_SCALE_VALUES, key=lambda value: abs(value - float(target_scale)))
+        current_scale = self.cell_scale if self.cell_scale > 0 else 1.0
+        if abs(target_scale - current_scale) < 0.001:
+            self.status = f"Map cell scale already {self._format_scale(target_scale)}."
+            return False
+
+        ratio = target_scale / current_scale
+        self.rebuild_grid()
+        old_grid = [row[:] for row in self.grid]
+        old_width = self.grid_width
+        old_height = self.grid_height
+        old_rooms = [replace(room) for room in self.rooms]
+        old_doors = dict(self.doors)
+        old_objects = {cell: replace(placement) for cell, placement in self.objects.items()}
+        old_start = self.start_cell
+
+        self.grid_width = max(MIN_GRID_WIDTH, int(round(old_width * ratio)))
+        self.grid_height = max(MIN_GRID_HEIGHT, int(round(old_height * ratio)))
+        self.rooms = [
+            Room(
+                room.room_id,
+                self._scale_cell_index(room.x, ratio, self.grid_width),
+                self._scale_cell_index(room.y, ratio, self.grid_height),
+                max(MIN_ROOM_SIZE, int(round(room.w * ratio))),
+                max(MIN_ROOM_SIZE, int(round(room.h * ratio))),
+                room.name,
+                room.number,
+            )
+            for room in old_rooms
+        ]
+
+        self.doors.clear()
+        self.overrides.clear()
+        self.objects.clear()
+        self.start_cell = None
+
+        for y in range(self.grid_height):
+            old_y = min(old_height - 1, int(y / ratio)) if old_height > 0 else 0
+            for x in range(self.grid_width):
+                old_x = min(old_width - 1, int(x / ratio)) if old_width > 0 else 0
+                char = old_grid[old_y][old_x]
+                self.overrides[(x, y)] = "#" if char == "#" or char in DOOR_SYMBOLS else "."
+
+        for (x, y), symbol in old_doors.items():
+            for target in self._scaled_cell_rect(x, y, ratio, self.grid_width, self.grid_height):
+                self.doors[target] = symbol
+                self.overrides.pop(target, None)
+
+        if old_start is not None:
+            self.start_cell = (
+                self._scale_cell_index(old_start[0], ratio, self.grid_width),
+                self._scale_cell_index(old_start[1], ratio, self.grid_height),
+            )
+
+        for (x, y), placement in old_objects.items():
+            length, width, height, placement_height = self.object_dimensions(placement)
+            scaled = replace(
+                placement,
+                length=max(0.05, length * ratio),
+                width=max(0.05, width * ratio),
+                height=height,
+                placement_height=placement_height,
+            )
+            anchor = (
+                self._scale_cell_index(x, ratio, self.grid_width),
+                self._scale_cell_index(y, ratio, self.grid_height),
+            )
+            self.objects[anchor] = scaled
+
+        self.cell_scale = target_scale
+        self.selected_room_id = None
+        self.selected_door = None
+        self.selected_object = None
+        self.rebuild_grid()
+        self.status = f"Map cell scale set to {self._format_scale(target_scale)}."
+        return True
+
+    def _format_scale(self, scale: float) -> str:
+        return str(int(scale)) if abs(scale - int(scale)) < 0.001 else str(scale)
+
+    def _scale_cell_index(self, value: int, ratio: float, limit: int) -> int:
+        if limit <= 1:
+            return 0
+        scaled = int(round((value + 0.5) * ratio - 0.5))
+        return max(0, min(limit - 1, scaled))
+
+    def _scaled_cell_rect(
+        self,
+        x: int,
+        y: int,
+        ratio: float,
+        width: int,
+        height: int,
+    ) -> list[tuple[int, int]]:
+        x0 = max(0, min(width - 1, int(math.floor(x * ratio))))
+        y0 = max(0, min(height - 1, int(math.floor(y * ratio))))
+        x1 = max(x0, min(width - 1, int(math.ceil((x + 1) * ratio)) - 1))
+        y1 = max(y0, min(height - 1, int(math.ceil((y + 1) * ratio)) - 1))
+        return [(tx, ty) for ty in range(y0, y1 + 1) for tx in range(x0, x1 + 1)]
 
     def clear_map(self) -> None:
         self.rooms.clear()
@@ -669,6 +807,22 @@ class MapEditorState:
         self.status = "Object placement updated."
         return True
 
+    def update_selected_object_asset(self, object_id: str) -> bool:
+        current_anchor = self.selected_object
+        if current_anchor is None:
+            return False
+        placement = self.objects.get(current_anchor)
+        if placement is None:
+            return False
+        updated = ObjectPlacement(object_id, placement.rotation % 360)
+        if not self._object_fits(current_anchor, updated, ignore_anchor=current_anchor):
+            self.status = "Selected asset does not fit at this position."
+            return False
+        self.objects[current_anchor] = updated
+        self.rebuild_grid()
+        self.status = f"Selected object changed to {self.object_label(object_id)}."
+        return True
+
     def _is_floor_target(self, cell: tuple[int, int]) -> bool:
         x, y = cell
         return self.in_bounds(x, y) and self.grid[y][x] in FLOOR_CHARS | {"."}
@@ -785,6 +939,7 @@ class MapEditorState:
         layout_path.write_text(layout, encoding="utf-8")
         metadata = {
             "tile_size_cm": 60,
+            "cell_scale": self.cell_scale,
             "floor": self.floor,
             "grid_width": self.grid_width,
             "grid_height": self.grid_height,
@@ -860,14 +1015,19 @@ class MapEditor:
         self.active_object_symbol = "1"
         self.active_object_rotation = 0
         self.auto_wall_snap = False
+        if self.state.object_specs:
+            self.active_object_symbol = next(iter(sorted(self.state.object_specs)))
         self.buttons: list[tuple[pygame.Rect, str, str, str | None]] = []
         self.object_buttons: dict[str, pygame.Rect] = {}
         self.object_dropdown_open = False
         self.object_dropdown_rect = pygame.Rect(0, 0, 0, 0)
         self.auto_wall_snap_rect = pygame.Rect(0, 0, 0, 0)
+        self.map_scale_track_rect = pygame.Rect(0, 0, 0, 0)
+        self.map_scale_tick_rects: dict[float, pygame.Rect] = {}
         self.editing_field: str | None = None
         self.edit_buffer = ""
         self.drag_mode: str | None = None
+        self.drag_history_pushed = False
         self.drag_start_cell: tuple[int, int] | None = None
         self.drag_current_cell: tuple[int, int] | None = None
         self.drag_initial_room: tuple[int, int, int, int] | None = None
@@ -880,6 +1040,7 @@ class MapEditor:
         self.floor_buttons: dict[int, pygame.Rect] = {}
         self.scrollbar_drag_offset = 0
         self.side_scrollbar_drag_offset = 0
+        self.cell_size = CELL_SIZE
         self.scroll_x = 0
         self.scroll_y = 0
         self.toolbar_scroll_y = 0
@@ -887,6 +1048,8 @@ class MapEditor:
         self.toolbar_help_y = 0
         self.toolbar_content_height = 0
         self.panel_content_height = WINDOW_HEIGHT - STATUS_HEIGHT
+        self.undo_stack: list[dict] = []
+        self.redo_stack: list[dict] = []
         self._build_buttons()
 
     def run(self) -> None:
@@ -956,9 +1119,12 @@ class MapEditor:
             "Ctrl+drag box-selects items.",
             "Bottom bar scrolls left/right.",
             "Middle/right drag pans the grid.",
+            "Mouse wheel zooms the canvas.",
             "Keys: Ctrl+S save, Del delete.",
+            "Undo: Ctrl+Z / Ctrl+Shift+Z.",
             "Objects: click list or press 1-9.",
             "Rotate object: Q/E or buttons.",
+            "Map scale is in Properties.",
         ]
 
     def _handle_events(self) -> None:
@@ -976,8 +1142,151 @@ class MapEditor:
             elif event.type == pygame.MOUSEWHEEL:
                 self._handle_mouse_wheel(event)
 
+    def _state_snapshot(self) -> dict:
+        return {
+            "floor": self.state.floor,
+            "grid_width": self.state.grid_width,
+            "grid_height": self.state.grid_height,
+            "cell_scale": self.state.cell_scale,
+            "initial_hp": self.state.initial_hp,
+            "initial_sanity": self.state.initial_sanity,
+            "initial_battery": self.state.initial_battery,
+            "rooms": [asdict(room) for room in self.state.rooms],
+            "doors": [
+                {"x": x, "y": y, "symbol": symbol}
+                for (x, y), symbol in sorted(self.state.doors.items())
+            ],
+            "objects": [
+                self.state._object_metadata_item(x, y, placement)
+                for (x, y), placement in sorted(self.state.objects.items())
+            ],
+            "overrides": [
+                {"x": x, "y": y, "symbol": symbol}
+                for (x, y), symbol in sorted(self.state.overrides.items())
+            ],
+            "start_cell": self.state.start_cell,
+            "next_room_id": self.state.next_room_id,
+        }
+
+    def _restore_snapshot(self, snapshot: dict) -> None:
+        state = MapEditorState(int(snapshot.get("floor", self.state.floor)))
+        state.grid_width = max(MIN_GRID_WIDTH, int(snapshot.get("grid_width", DEFAULT_GRID_WIDTH)))
+        state.grid_height = max(MIN_GRID_HEIGHT, int(snapshot.get("grid_height", DEFAULT_GRID_HEIGHT)))
+        try:
+            state.cell_scale = float(snapshot.get("cell_scale", 1.0))
+        except (TypeError, ValueError):
+            state.cell_scale = 1.0
+        state.initial_hp = int(snapshot.get("initial_hp", state.initial_hp))
+        state.initial_sanity = int(snapshot.get("initial_sanity", state.initial_sanity))
+        state.initial_battery = int(snapshot.get("initial_battery", state.initial_battery))
+        state.rooms = []
+        for raw in snapshot.get("rooms", []):
+            try:
+                state.rooms.append(
+                    Room(
+                        int(raw["room_id"]),
+                        int(raw["x"]),
+                        int(raw["y"]),
+                        max(MIN_ROOM_SIZE, int(raw["w"])),
+                        max(MIN_ROOM_SIZE, int(raw["h"])),
+                        str(raw.get("name", "Room")),
+                        str(raw.get("number", raw["room_id"])),
+                    )
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+        state.doors = {}
+        for raw in snapshot.get("doors", []):
+            try:
+                symbol = str(raw["symbol"])
+                if symbol in DOOR_SYMBOLS:
+                    state.doors[(int(raw["x"]), int(raw["y"]))] = symbol
+            except (KeyError, TypeError, ValueError):
+                continue
+        state.objects = {}
+        for raw in snapshot.get("objects", []):
+            try:
+                x = int(raw["x"])
+                y = int(raw["y"])
+                object_id = str(raw["object_id"])
+                state.objects[(x, y)] = ObjectPlacement(
+                    object_id,
+                    int(raw.get("rotation", 0)) % 360,
+                    state._read_optional_positive_float(raw, "length"),
+                    state._read_optional_positive_float(raw, "width"),
+                    state._read_optional_positive_float(raw, "height"),
+                    state._read_optional_non_negative_float(raw, "placement_height"),
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+        state.overrides = {}
+        for raw in snapshot.get("overrides", []):
+            try:
+                symbol = str(raw["symbol"])
+                if symbol in {"#", "."}:
+                    state.overrides[(int(raw["x"]), int(raw["y"]))] = symbol
+            except (KeyError, TypeError, ValueError):
+                continue
+        start_cell = snapshot.get("start_cell")
+        state.start_cell = tuple(start_cell) if isinstance(start_cell, (list, tuple)) and len(start_cell) == 2 else None
+        try:
+            state.next_room_id = int(snapshot.get("next_room_id", 1 + max((room.room_id for room in state.rooms), default=0)))
+        except (TypeError, ValueError):
+            state.next_room_id = 1 + max((room.room_id for room in state.rooms), default=0)
+        state.selected_room_id = None
+        state.selected_door = None
+        state.selected_object = None
+        state.rebuild_grid()
+        self.state = state
+        self._clear_area_selection()
+        self._cancel_editing_field()
+        self.drag_mode = None
+        self._clamp_scroll()
+
+    def _push_history(self) -> None:
+        snapshot = self._state_snapshot()
+        if self.undo_stack and self.undo_stack[-1] == snapshot:
+            return
+        self.undo_stack.append(snapshot)
+        if len(self.undo_stack) > HISTORY_LIMIT:
+            self.undo_stack.pop(0)
+        self.redo_stack.clear()
+
+    def _push_drag_history(self) -> None:
+        if self.drag_history_pushed:
+            return
+        self._push_history()
+        self.drag_history_pushed = True
+
+    def _undo(self) -> None:
+        if not self.undo_stack:
+            self.state.status = "Nothing to undo."
+            return
+        self.redo_stack.append(self._state_snapshot())
+        snapshot = self.undo_stack.pop()
+        self._restore_snapshot(snapshot)
+        self.state.status = "Undo."
+
+    def _redo(self) -> None:
+        if not self.redo_stack:
+            self.state.status = "Nothing to redo."
+            return
+        self.undo_stack.append(self._state_snapshot())
+        snapshot = self.redo_stack.pop()
+        self._restore_snapshot(snapshot)
+        self.state.status = "Redo."
+
     def _handle_keydown(self, event: pygame.event.Event) -> None:
         mods = pygame.key.get_mods()
+        if event.key == pygame.K_z and mods & pygame.KMOD_CTRL:
+            if self.editing_field is not None:
+                self._cancel_editing_field()
+            if mods & pygame.KMOD_SHIFT:
+                self._redo()
+            else:
+                self._undo()
+            return
+
         if self.editing_field is not None:
             if event.key == pygame.K_s and mods & pygame.KMOD_CTRL:
                 self._commit_editing_field()
@@ -998,6 +1307,7 @@ class MapEditor:
             self.drag_mode = None
             self._cancel_editing_field()
         elif event.key == pygame.K_DELETE:
+            self._push_history()
             if self.selection_rect is not None:
                 self._delete_area_selection()
             else:
@@ -1006,9 +1316,14 @@ class MapEditor:
             self.state.save()
         elif event.key == pygame.K_l and mods & pygame.KMOD_CTRL:
             self.state = MapEditorState.load(self.state.floor)
+            self._clear_area_selection()
+            self.undo_stack.clear()
+            self.redo_stack.clear()
         elif event.key == pygame.K_q:
+            self._push_history()
             self._rotate_active_object(-90)
         elif event.key == pygame.K_e:
+            self._push_history()
             self._rotate_active_object(90)
         elif event.unicode in "123456789":
             self.active_object_symbol = event.unicode
@@ -1077,6 +1392,7 @@ class MapEditor:
         field = self.editing_field
         if field is None:
             return
+        before = self._state_snapshot()
         if field in OBJECT_NUMERIC_FIELDS:
             self._set_object_numeric_field(field, self.edit_buffer)
         elif field in NUMERIC_FIELDS:
@@ -1090,6 +1406,11 @@ class MapEditor:
                 elif field == "number":
                     room.number = self.edit_buffer[:16]
                 self.state.status = "Room metadata updated."
+        if self._state_snapshot() != before:
+            self.undo_stack.append(before)
+            if len(self.undo_stack) > HISTORY_LIMIT:
+                self.undo_stack.pop(0)
+            self.redo_stack.clear()
         self._cancel_editing_field()
 
     def _cancel_editing_field(self) -> None:
@@ -1180,9 +1501,15 @@ class MapEditor:
 
     def _handle_mouse_down(self, event: pygame.event.Event) -> None:
         if event.button == 4:
+            if self.viewport_rect.collidepoint(event.pos):
+                self._zoom_view_at(event.pos, 1)
+                return
             self._scroll_area_at(event.pos, -SIDE_SCROLL_STEP)
             return
         if event.button == 5:
+            if self.viewport_rect.collidepoint(event.pos):
+                self._zoom_view_at(event.pos, -1)
+                return
             self._scroll_area_at(event.pos, SIDE_SCROLL_STEP)
             return
         if event.button != 1:
@@ -1214,11 +1541,15 @@ class MapEditor:
             self.active_tool = "select"
             self._begin_box_selection(cell)
         elif self.active_tool == "select" and self._begin_object_resize_at(pos):
+            self._push_drag_history()
             return
         elif self.active_tool == "select" and self._begin_area_move(cell):
+            self._push_drag_history()
             return
         elif self.active_tool == "select":
             self._begin_select_drag(cell)
+            if self.drag_mode in {"move_room", "resize_room"}:
+                self._push_drag_history()
         elif self.active_tool == "room":
             self._clear_area_selection()
             self.drag_mode = "create_room"
@@ -1230,10 +1561,35 @@ class MapEditor:
             self.drag_current_cell = cell
         else:
             self._clear_area_selection()
+            self.drag_mode = "paint"
+            self._push_drag_history()
             self._paint_cell(cell)
 
     def _handle_mouse_wheel(self, event: pygame.event.Event) -> None:
-        self._scroll_area_at(pygame.mouse.get_pos(), -event.y * SIDE_SCROLL_STEP)
+        pos = pygame.mouse.get_pos()
+        if self.viewport_rect.collidepoint(pos):
+            self._zoom_view_at(pos, event.y)
+            return
+        self._scroll_area_at(pos, -event.y * SIDE_SCROLL_STEP)
+
+    def _zoom_view_at(self, pos: tuple[int, int], wheel_delta: int) -> None:
+        if wheel_delta == 0:
+            return
+        old_size = self.cell_size
+        factor = VIEW_ZOOM_STEP if wheel_delta > 0 else 1.0 / VIEW_ZOOM_STEP
+        new_size = int(round(old_size * factor))
+        new_size = max(MIN_VIEW_CELL_SIZE, min(MAX_VIEW_CELL_SIZE, new_size))
+        if new_size == old_size:
+            return
+
+        viewport = self.viewport_rect
+        world_x = (pos[0] - viewport.x + self.scroll_x) / old_size
+        world_y = (pos[1] - viewport.y + self.scroll_y) / old_size
+        self.cell_size = new_size
+        self.scroll_x = int(round(world_x * new_size - (pos[0] - viewport.x)))
+        self.scroll_y = int(round(world_y * new_size - (pos[1] - viewport.y)))
+        self._clamp_scroll()
+        self.state.status = f"Canvas zoom: {self.cell_size}px per cell."
 
     def _scroll_area_at(self, pos: tuple[int, int], amount: int) -> None:
         if self.toolbar_rect.collidepoint(pos):
@@ -1264,14 +1620,19 @@ class MapEditor:
             elif payload == "load":
                 self.state = MapEditorState.load(self.state.floor)
                 self._clear_area_selection()
+                self.undo_stack.clear()
+                self.redo_stack.clear()
             elif payload == "clear":
+                self._push_history()
                 self._clear_area_selection()
                 self.drag_mode = None
                 self.state.clear_map()
                 self.active_tool = "select"
             elif payload == "rotate_ccw":
+                self._push_history()
                 self._rotate_active_object(-90)
             elif payload == "rotate_cw":
+                self._push_history()
                 self._rotate_active_object(90)
             return
         self.active_tool = action
@@ -1295,6 +1656,9 @@ class MapEditor:
             for object_id, rect in self.object_buttons.items():
                 if rect.collidepoint(pos):
                     self._commit_editing_field()
+                    if self.state.selected_object is not None:
+                        self._push_history()
+                        self.state.update_selected_object_asset(object_id)
                     self.active_tool = "object"
                     self.active_object_symbol = object_id
                     self.object_dropdown_open = False
@@ -1307,12 +1671,42 @@ class MapEditor:
             state = "on" if self.auto_wall_snap else "off"
             self.state.status = f"Auto wall snap {state}."
             return True
+        if self.map_scale_track_rect.collidepoint(pos) or any(rect.collidepoint(pos) for rect in self.map_scale_tick_rects.values()):
+            self._commit_editing_field()
+            self.drag_mode = "map_scale_slider"
+            self._set_map_scale_from_panel_x(pos[0])
+            return True
         for field, rect in self.panel_fields.items():
             if rect.collidepoint(pos):
                 self._begin_editing_field(field)
                 return True
         self._commit_editing_field()
         return True
+
+    def _set_map_scale_from_panel_x(self, screen_x: int) -> None:
+        track = self.map_scale_track_rect
+        if track.width <= 0:
+            return
+        values = list(MAP_SCALE_VALUES)
+        positions: dict[float, int] = {}
+        for index, value in enumerate(values):
+            t = index / max(1, len(values) - 1)
+            positions[value] = int(round(track.x + t * track.width))
+        target = min(values, key=lambda value: abs(screen_x - positions[value]))
+        if abs(target - self.state.cell_scale) < 0.001:
+            return
+
+        current_scale = self.state.cell_scale if self.state.cell_scale > 0 else 1.0
+        ratio = target / current_scale
+        viewport = self.viewport_rect
+        center_x = (self.scroll_x + viewport.width / 2) / self.cell_size
+        center_y = (self.scroll_y + viewport.height / 2) / self.cell_size
+        self._push_history()
+        if self.state.set_cell_scale(target):
+            self.scroll_x = int(round(center_x * ratio * self.cell_size - viewport.width / 2))
+            self.scroll_y = int(round(center_y * ratio * self.cell_size - viewport.height / 2))
+            self._clamp_scroll()
+            self._clear_area_selection()
 
     def _switch_floor(self, floor: int) -> None:
         self._commit_editing_field()
@@ -1325,6 +1719,8 @@ class MapEditor:
         self.drag_mode = None
         self.scroll_x = 0
         self.scroll_y = 0
+        self.undo_stack.clear()
+        self.redo_stack.clear()
 
     def _handle_side_scrollbar_down(self, pos: tuple[int, int]) -> bool:
         if self._max_toolbar_scroll_y() > 0 and self._side_scrollbar_track_rect(self.toolbar_rect).collidepoint(pos):
@@ -1393,7 +1789,7 @@ class MapEditor:
     def _object_resize_handle_rects(self, anchor: tuple[int, int], placement: ObjectPlacement) -> dict[str, pygame.Rect]:
         width, height = self.state.object_footprint_size(placement)
         sx, sy = self._screen_from_cell(*anchor)
-        rect = pygame.Rect(sx, sy, width * CELL_SIZE, height * CELL_SIZE)
+        rect = pygame.Rect(sx, sy, width * self.cell_size, height * self.cell_size)
         half = OBJECT_HANDLE_SIZE // 2
         points = {
             "nw": rect.topleft,
@@ -1668,18 +2064,24 @@ class MapEditor:
         elif self.drag_mode == "move_selection":
             self._finish_area_move()
         elif self.drag_mode == "create_room" and self.drag_start_cell and self.drag_current_cell:
+            self._push_drag_history()
             self.state.add_room(*self.drag_start_cell, *self.drag_current_cell)
         elif self.drag_mode == "place_door" and self.drag_current_cell:
+            self._push_drag_history()
             self.state.place_door(self.drag_current_cell, self.active_door_symbol)
         elif self.drag_mode == "toolbar":
             cell = self._cell_from_pos(event.pos)
             if cell is not None and self.active_tool == "door":
+                self._push_drag_history()
                 self.state.place_door(cell, self.active_door_symbol)
             elif cell is not None and self.active_tool == "room":
+                self._push_drag_history()
                 self.state.add_room(cell[0], cell[1], cell[0] + MIN_ROOM_SIZE - 1, cell[1] + MIN_ROOM_SIZE - 1)
             elif cell is not None and self.active_tool == "object":
+                self._push_drag_history()
                 self._place_active_object(cell)
         self.drag_mode = None
+        self.drag_history_pushed = False
         self.drag_start_cell = None
         self.drag_current_cell = None
         self.drag_initial_room = None
@@ -1696,6 +2098,9 @@ class MapEditor:
             return
         if self.drag_mode == "h_scrollbar":
             self._set_scroll_x_from_thumb(event.pos[0] - self.scrollbar_drag_offset)
+            return
+        if self.drag_mode == "map_scale_slider":
+            self._set_map_scale_from_panel_x(event.pos[0])
             return
         if event.buttons[1] or event.buttons[2]:
             self.scroll_x = max(0, self.scroll_x - event.rel[0])
@@ -1728,6 +2133,7 @@ class MapEditor:
                 self.drag_mode = "place_door"
                 self.drag_current_cell = cell
             elif self.active_tool == "object":
+                self._push_drag_history()
                 self._place_active_object(cell)
             return
         self.drag_current_cell = cell
@@ -1845,7 +2251,7 @@ class MapEditor:
 
     def _horizontal_scrollbar_thumb_rect(self) -> pygame.Rect:
         track = self._horizontal_scrollbar_track_rect()
-        content_width = max(1, self.state.grid_width * CELL_SIZE)
+        content_width = max(1, self.state.grid_width * self.cell_size)
         visible_width = max(1, self.viewport_rect.width)
         if content_width <= visible_width:
             return track.copy()
@@ -1908,10 +2314,10 @@ class MapEditor:
         pygame.draw.rect(self.screen, COLOR_ACCENT if active else (102, 119, 121), thumb, border_radius=3)
 
     def _max_scroll_x(self) -> int:
-        return max(0, self.state.grid_width * CELL_SIZE - self.viewport_rect.width)
+        return max(0, self.state.grid_width * self.cell_size - self.viewport_rect.width)
 
     def _max_scroll_y(self) -> int:
-        return max(0, self.state.grid_height * CELL_SIZE - self.viewport_rect.height)
+        return max(0, self.state.grid_height * self.cell_size - self.viewport_rect.height)
 
     def _max_toolbar_scroll_y(self) -> int:
         return max(0, self.toolbar_content_height - self.toolbar_rect.height)
@@ -1931,8 +2337,8 @@ class MapEditor:
         viewport = self.viewport_rect
         if not viewport.collidepoint(pos):
             return None
-        x = (pos[0] - viewport.x + self.scroll_x) // CELL_SIZE
-        y = (pos[1] - viewport.y + self.scroll_y) // CELL_SIZE
+        x = (pos[0] - viewport.x + self.scroll_x) // self.cell_size
+        y = (pos[1] - viewport.y + self.scroll_y) // self.cell_size
         if x < 0 or y < 0:
             return None
         if x >= self.state.grid_width or y >= self.state.grid_height:
@@ -1941,7 +2347,7 @@ class MapEditor:
 
     def _screen_from_cell(self, x: int, y: int) -> tuple[int, int]:
         viewport = self.viewport_rect
-        return viewport.x + x * CELL_SIZE - self.scroll_x, viewport.y + y * CELL_SIZE - self.scroll_y
+        return viewport.x + x * self.cell_size - self.scroll_x, viewport.y + y * self.cell_size - self.scroll_y
 
     def _draw(self) -> None:
         self.screen.fill(COLOR_BG)
@@ -1986,16 +2392,16 @@ class MapEditor:
         clip = self.screen.get_clip()
         self.screen.set_clip(viewport)
 
-        start_x = max(0, self.scroll_x // CELL_SIZE)
-        start_y = max(0, self.scroll_y // CELL_SIZE)
-        end_x = min(self.state.grid_width, start_x + viewport.width // CELL_SIZE + 3)
-        end_y = min(self.state.grid_height, start_y + viewport.height // CELL_SIZE + 3)
+        start_x = max(0, self.scroll_x // self.cell_size)
+        start_y = max(0, self.scroll_y // self.cell_size)
+        end_x = min(self.state.grid_width, start_x + viewport.width // self.cell_size + 3)
+        end_y = min(self.state.grid_height, start_y + viewport.height // self.cell_size + 3)
 
         for y in range(start_y, end_y):
             for x in range(start_x, end_x):
                 sx, sy = self._screen_from_cell(x, y)
                 char = self.state.grid[y][x]
-                rect = pygame.Rect(sx, sy, CELL_SIZE, CELL_SIZE)
+                rect = pygame.Rect(sx, sy, self.cell_size, self.cell_size)
                 pygame.draw.rect(self.screen, self._cell_color(char), rect)
                 pygame.draw.rect(self.screen, COLOR_GRID, rect, 1)
                 if char in DOOR_SYMBOLS or char == "@" or (char in "123456789" and (x, y) not in self.state.objects):
@@ -2034,20 +2440,26 @@ class MapEditor:
 
     def _draw_room_overlay(self, room: Room) -> None:
         sx, sy = self._screen_from_cell(room.x, room.y)
-        rect = pygame.Rect(sx, sy, room.w * CELL_SIZE, room.h * CELL_SIZE)
+        rect = pygame.Rect(sx, sy, room.w * self.cell_size, room.h * self.cell_size)
         selected = room.room_id == self.state.selected_room_id
         color = COLOR_SELECTED if selected else (92, 104, 105)
         pygame.draw.rect(self.screen, color, rect, 2 if selected else 1)
         if selected:
             hx, hy = self._screen_from_cell(*room.handle_cell())
-            handle = pygame.Rect(hx + CELL_SIZE - 8, hy + CELL_SIZE - 8, 8, 8)
+            handle_size = min(8, max(5, self.cell_size // 2))
+            handle = pygame.Rect(
+                hx + self.cell_size - handle_size,
+                hy + self.cell_size - handle_size,
+                handle_size,
+                handle_size,
+            )
             pygame.draw.rect(self.screen, COLOR_SELECTED, handle)
 
     def _draw_objects_overlay(self) -> None:
         for anchor, placement in self.state.objects.items():
             width, height = self.state.object_footprint_size(placement)
             sx, sy = self._screen_from_cell(*anchor)
-            rect = pygame.Rect(sx, sy, width * CELL_SIZE, height * CELL_SIZE)
+            rect = pygame.Rect(sx, sy, width * self.cell_size, height * self.cell_size)
             selected = anchor == self.state.selected_object
             color = COLOR_SELECTED if selected else COLOR_OBJECT
             fill = self._object_fill_color(placement)
@@ -2055,7 +2467,7 @@ class MapEditor:
                 if not self._cell_visible(cell):
                     continue
                 cell_sx, cell_sy = self._screen_from_cell(*cell)
-                cell_rect = pygame.Rect(cell_sx, cell_sy, CELL_SIZE, CELL_SIZE)
+                cell_rect = pygame.Rect(cell_sx, cell_sy, self.cell_size, self.cell_size)
                 pygame.draw.rect(self.screen, fill, cell_rect)
                 pygame.draw.rect(self.screen, COLOR_GRID, cell_rect, 1)
             pygame.draw.rect(self.screen, color, rect, 2 if selected else 1)
@@ -2071,7 +2483,7 @@ class MapEditor:
 
     def _cell_visible(self, cell: tuple[int, int]) -> bool:
         sx, sy = self._screen_from_cell(*cell)
-        return self.viewport_rect.colliderect(pygame.Rect(sx, sy, CELL_SIZE, CELL_SIZE))
+        return self.viewport_rect.colliderect(pygame.Rect(sx, sy, self.cell_size, self.cell_size))
 
     def _draw_object_resize_handles(self, anchor: tuple[int, int], placement: ObjectPlacement) -> None:
         for rect in self._object_resize_handle_rects(anchor, placement).values():
@@ -2101,7 +2513,7 @@ class MapEditor:
         min_x, max_x = sorted((x1, x2))
         min_y, max_y = sorted((y1, y2))
         sx, sy = self._screen_from_cell(min_x, min_y)
-        rect = pygame.Rect(sx, sy, (max_x - min_x + 1) * CELL_SIZE, (max_y - min_y + 1) * CELL_SIZE)
+        rect = pygame.Rect(sx, sy, (max_x - min_x + 1) * self.cell_size, (max_y - min_y + 1) * self.cell_size)
         pygame.draw.rect(self.screen, COLOR_ACCENT, rect, 2)
 
     def _draw_door_preview(self) -> None:
@@ -2111,7 +2523,7 @@ class MapEditor:
         if target is None:
             return
         sx, sy = self._screen_from_cell(*target)
-        rect = pygame.Rect(sx, sy, CELL_SIZE, CELL_SIZE)
+        rect = pygame.Rect(sx, sy, self.cell_size, self.cell_size)
         pygame.draw.rect(self.screen, COLOR_ACCENT, rect, 3)
 
     def _draw_area_selection(self) -> None:
@@ -2126,7 +2538,7 @@ class MapEditor:
             return
         min_x, min_y, max_x, max_y = rect_cells
         sx, sy = self._screen_from_cell(min_x, min_y)
-        rect = pygame.Rect(sx, sy, (max_x - min_x + 1) * CELL_SIZE, (max_y - min_y + 1) * CELL_SIZE)
+        rect = pygame.Rect(sx, sy, (max_x - min_x + 1) * self.cell_size, (max_y - min_y + 1) * self.cell_size)
         pygame.draw.rect(self.screen, color, rect, 2)
 
     def _draw_panel(self) -> None:
@@ -2135,6 +2547,7 @@ class MapEditor:
         self.panel_fields.clear()
         self.floor_buttons.clear()
         self.object_buttons.clear()
+        self.map_scale_tick_rects.clear()
         self._clamp_side_scrolls()
         clip = self.screen.get_clip()
         self.screen.set_clip(panel)
@@ -2155,11 +2568,12 @@ class MapEditor:
         self._draw_text(f"Tool: {self._tool_label()}", (panel.x + 20, py(92)), self.font, COLOR_ACCENT)
         self._draw_number_input("grid_width", "W", self.state.grid_width, pygame.Rect(panel.x + 42, py(126), 58, 28))
         self._draw_number_input("grid_height", "H", self.state.grid_height, pygame.Rect(panel.x + 132, py(126), 58, 28))
-        self._draw_number_input("initial_hp", "HP", self.state.initial_hp, pygame.Rect(panel.x + 42, py(180), 58, 28))
-        self._draw_number_input("initial_sanity", "SAN", self.state.initial_sanity, pygame.Rect(panel.x + 132, py(180), 58, 28))
-        self._draw_number_input("initial_battery", "BAT", self.state.initial_battery, pygame.Rect(panel.x + 222, py(180), 58, 28))
+        self._draw_map_scale_slider(panel, py)
+        self._draw_number_input("initial_hp", "HP", self.state.initial_hp, pygame.Rect(panel.x + 42, py(230), 58, 28))
+        self._draw_number_input("initial_sanity", "SAN", self.state.initial_sanity, pygame.Rect(panel.x + 132, py(230), 58, 28))
+        self._draw_number_input("initial_battery", "BAT", self.state.initial_battery, pygame.Rect(panel.x + 222, py(230), 58, 28))
 
-        object_y = 230
+        object_y = 280
         self._draw_text("Object Asset", (panel.x + 20, py(object_y)), self.small_font, COLOR_MUTED)
         self.object_dropdown_rect = pygame.Rect(panel.x + 24, py(object_y + 22), PANEL_WIDTH - 48, 28)
         pygame.draw.rect(self.screen, (35, 43, 45), self.object_dropdown_rect, border_radius=3)
@@ -2191,7 +2605,7 @@ class MapEditor:
             pygame.draw.line(self.screen, COLOR_ACCENT, (self.auto_wall_snap_rect.x + 8, self.auto_wall_snap_rect.bottom - 4), (self.auto_wall_snap_rect.right - 4, self.auto_wall_snap_rect.y + 4), 2)
         self._draw_text("Auto wall snap", (panel.x + 48, py(snap_y + 1)), self.small_font, COLOR_TEXT)
 
-        selection_y = max(330, snap_y + 42)
+        selection_y = max(380, snap_y + 42)
 
         room = self.state.selected_room()
         if room is not None:
@@ -2242,6 +2656,35 @@ class MapEditor:
         self.screen.set_clip(clip)
         self._draw_side_scrollbar(panel, self.panel_scroll_y, self.panel_content_height, self.drag_mode == "panel_v_scrollbar")
         pygame.draw.rect(self.screen, COLOR_PANEL_EDGE, panel, 1)
+
+    def _draw_map_scale_slider(self, panel: pygame.Rect, py) -> None:
+        label_y = py(164)
+        track_y = py(194)
+        self._draw_text("Map Scale", (panel.x + 20, label_y), self.small_font, COLOR_MUTED)
+        value_text = f"{self.state._format_scale(self.state.cell_scale)}x"
+        self._draw_text(value_text, (panel.x + PANEL_WIDTH - 62, label_y), self.small_font, COLOR_ACCENT)
+
+        track = pygame.Rect(panel.x + 42, track_y, PANEL_WIDTH - 84, 4)
+        self.map_scale_track_rect = track.inflate(18, 28)
+        pygame.draw.rect(self.screen, (40, 48, 50), track, border_radius=2)
+        values = list(MAP_SCALE_VALUES)
+        active_x = track.x
+        for index, value in enumerate(values):
+            t = index / max(1, len(values) - 1)
+            x = int(round(track.x + t * track.width))
+            tick_rect = pygame.Rect(x - 14, track_y - 15, 28, 36)
+            self.map_scale_tick_rects[value] = tick_rect
+            active = abs(value - self.state.cell_scale) < 0.001
+            if active:
+                active_x = x
+            color = COLOR_ACCENT if active else COLOR_PANEL_EDGE
+            pygame.draw.line(self.screen, color, (x, track_y - 5), (x, track_y + 9), 2)
+            label = self.state._format_scale(value)
+            surface = self.small_font.render(label, True, color if active else COLOR_MUTED)
+            self.screen.blit(surface, surface.get_rect(center=(x, track_y + 26)))
+
+        pygame.draw.circle(self.screen, COLOR_ACCENT, (active_x, track_y + 2), 8)
+        pygame.draw.circle(self.screen, COLOR_PANEL, (active_x, track_y + 2), 4)
 
     def _draw_number_input(self, field: str, label: str, value: int | float | str, rect: pygame.Rect) -> None:
         self.panel_fields[field] = rect

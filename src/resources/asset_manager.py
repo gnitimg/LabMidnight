@@ -89,7 +89,7 @@ class TextureStore:
                 if path is None:
                     continue
                 try:
-                    self.object_textures[(object_id, face)] = pygame.image.load(str(path)).convert()
+                    self.object_textures[(object_id, face)] = pygame.image.load(str(path)).convert_alpha()
                 except (pygame.error, OSError):
                     continue
 
