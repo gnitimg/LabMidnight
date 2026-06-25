@@ -36154,6 +36154,96 @@
       "placement_height": 0.0
     },
     {
+      "x": 50,
+      "y": 2,
+      "object_id": "7",
+      "rotation": 0,
+      "length": 1.0,
+      "width": 1.0,
+      "height": 1.0,
+      "placement_height": 0.0
+    },
+    {
+      "x": 50,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 50,
+      "y": 7,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 50,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 50,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 7,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
       "x": 54,
       "y": 36,
       "object_id": "8",
@@ -36164,22 +36254,182 @@
       "placement_height": 0.0
     },
     {
-      "x": 56,
-      "y": 8,
-      "object_id": "7",
-      "rotation": 0,
+      "x": 58,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 270,
       "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
+      "width": 1.0,
+      "height": 1.2,
       "placement_height": 0.0
     },
     {
-      "x": 73,
-      "y": 5,
+      "x": 58,
+      "y": 7,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 7,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 71,
+      "y": 4,
       "object_id": "desk",
       "rotation": 270,
       "length": 1.0,
       "width": 2.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 71,
+      "y": 6,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 71,
+      "y": 8,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 71,
+      "y": 10,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 71,
+      "y": 12,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 74,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 74,
+      "y": 6,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 74,
+      "y": 8,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 74,
+      "y": 10,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 74,
+      "y": 12,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
       "height": 1.2,
       "placement_height": 0.0
     },

@@ -18,6 +18,9 @@ from src.settings import (
     DOOR_TILES,
     OBJECT_COLLISION_RADIUS,
     PLAYER_RADIUS,
+    PLAYER_SPEED,
+    PLAYER_SPEED_MAX,
+    PLAYER_SPEED_MIN,
     TILE_CLASSROOM_DOOR,
     TILE_EMPTY,
     TILE_EXIT_DOOR,
@@ -81,7 +84,7 @@ def layout_path_for_floor(floor: int) -> Path:
 
 
 def load_initial_player_config() -> dict[str, float]:
-    defaults = {"hp": 100.0, "sanity": 100.0, "flashlight_power": 86.0}
+    defaults = {"hp": 100.0, "sanity": 100.0, "flashlight_power": 86.0, "speed": PLAYER_SPEED}
     if not MAP_CONFIG_PATH.exists():
         return defaults
     try:
@@ -93,8 +96,14 @@ def load_initial_player_config() -> dict[str, float]:
     if not isinstance(initial, dict):
         return defaults
     for key in defaults:
+        source_key = key
+        if key == "speed" and key not in initial and "player_speed" in initial:
+            source_key = "player_speed"
         try:
-            defaults[key] = max(0.0, float(initial.get(key, defaults[key])))
+            value = max(0.0, float(initial.get(source_key, defaults[key])))
+            if key == "speed":
+                value = max(PLAYER_SPEED_MIN, min(PLAYER_SPEED_MAX, value))
+            defaults[key] = value
         except (TypeError, ValueError):
             pass
     return defaults

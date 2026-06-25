@@ -20,6 +20,7 @@ if __package__ in (None, ""):
     sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from src.resources.object_assets import ObjectSpec, load_object_specs
+from src.settings import PLAYER_SPEED, PLAYER_SPEED_MAX, PLAYER_SPEED_MIN
 
 
 LEGACY_MAP_LAYOUT_PATH = Path("data/map_layout.txt")
@@ -103,7 +104,8 @@ OBJECT_NUMERIC_FIELDS = {
     "object_height",
     "object_z",
 }
-NUMERIC_FIELDS = {"grid_width", "grid_height", "initial_hp", "initial_sanity", "initial_battery"} | OBJECT_NUMERIC_FIELDS
+FLOAT_NUMERIC_FIELDS = {"player_speed", "object_footprint_w", "object_footprint_d", "object_height", "object_z"}
+NUMERIC_FIELDS = {"grid_width", "grid_height", "initial_hp", "initial_sanity", "initial_battery", "player_speed"} | OBJECT_NUMERIC_FIELDS
 
 
 def floor_layout_path(floor: int) -> Path:
@@ -172,6 +174,7 @@ class MapEditorState:
         self.initial_hp = 100
         self.initial_sanity = 100
         self.initial_battery = 86
+        self.player_speed = PLAYER_SPEED
         self.object_specs: dict[str, ObjectSpec] = load_object_specs()
         self.rooms: list[Room] = []
         self.doors: dict[tuple[int, int], str] = {}
@@ -251,12 +254,24 @@ class MapEditorState:
         self.initial_hp = self._read_int(initial, "hp", self.initial_hp)
         self.initial_sanity = self._read_int(initial, "sanity", self.initial_sanity)
         self.initial_battery = self._read_int(initial, "flashlight_power", self.initial_battery)
+        raw_speed = self._read_float(initial, ("speed", "player_speed"), self.player_speed)
+        self.player_speed = max(PLAYER_SPEED_MIN, min(PLAYER_SPEED_MAX, raw_speed))
 
     def _read_int(self, payload: dict, key: str, fallback: int) -> int:
         try:
             return max(0, int(float(payload.get(key, fallback))))
         except (TypeError, ValueError):
             return fallback
+
+    def _read_float(self, payload: dict, keys: tuple[str, ...], fallback: float) -> float:
+        for key in keys:
+            if key not in payload:
+                continue
+            try:
+                return max(0.0, float(payload[key]))
+            except (TypeError, ValueError):
+                return fallback
+        return fallback
 
     def _load_room_metadata(self) -> list[Room]:
         meta_path = existing_room_meta_path_for_floor(self.floor)
@@ -980,6 +995,7 @@ class MapEditorState:
                 "hp": self.initial_hp,
                 "sanity": self.initial_sanity,
                 "flashlight_power": self.initial_battery,
+                "speed": self.player_speed,
             }
         }
         MAP_CONFIG_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1151,6 +1167,7 @@ class MapEditor:
             "initial_hp": self.state.initial_hp,
             "initial_sanity": self.state.initial_sanity,
             "initial_battery": self.state.initial_battery,
+            "player_speed": self.state.player_speed,
             "rooms": [asdict(room) for room in self.state.rooms],
             "doors": [
                 {"x": x, "y": y, "symbol": symbol}
@@ -1179,6 +1196,11 @@ class MapEditor:
         state.initial_hp = int(snapshot.get("initial_hp", state.initial_hp))
         state.initial_sanity = int(snapshot.get("initial_sanity", state.initial_sanity))
         state.initial_battery = int(snapshot.get("initial_battery", state.initial_battery))
+        try:
+            raw_speed = float(snapshot.get("player_speed", state.player_speed))
+            state.player_speed = max(PLAYER_SPEED_MIN, min(PLAYER_SPEED_MAX, raw_speed))
+        except (TypeError, ValueError):
+            state.player_speed = PLAYER_SPEED
         state.rooms = []
         for raw in snapshot.get("rooms", []):
             try:
@@ -1373,7 +1395,7 @@ class MapEditor:
             if len(self.edit_buffer) < max_digits:
                 self.edit_buffer += typed
             return
-        if self.editing_field in {"object_footprint_w", "object_footprint_d", "object_height", "object_z"}:
+        if self.editing_field in FLOAT_NUMERIC_FIELDS:
             if typed == "." and "." not in self.edit_buffer and self.edit_buffer:
                 self.edit_buffer += typed
 
@@ -1396,7 +1418,15 @@ class MapEditor:
         if field in OBJECT_NUMERIC_FIELDS:
             self._set_object_numeric_field(field, self.edit_buffer)
         elif field in NUMERIC_FIELDS:
-            value = int(self.edit_buffer) if self.edit_buffer else 0
+            if field in FLOAT_NUMERIC_FIELDS:
+                try:
+                    value = float(self.edit_buffer) if self.edit_buffer else 0.0
+                except ValueError:
+                    self.state.status = "Field needs a number."
+                    self._cancel_editing_field()
+                    return
+            else:
+                value = int(self.edit_buffer) if self.edit_buffer else 0
             self._set_numeric_field(field, value)
         else:
             room = self.state.selected_room()
@@ -1438,8 +1468,10 @@ class MapEditor:
             "initial_hp": self.state.initial_hp,
             "initial_sanity": self.state.initial_sanity,
             "initial_battery": self.state.initial_battery,
+            "player_speed": self.state.player_speed,
         }
-        return str(values.get(field, 0))
+        value = values.get(field, 0)
+        return self._format_number(value) if isinstance(value, float) else str(value)
 
     def _object_numeric_field_value(self, field: str) -> str:
         cell = self.state.selected_object
@@ -1464,17 +1496,19 @@ class MapEditor:
             return str(int(value))
         return f"{value:.2f}".rstrip("0").rstrip(".")
 
-    def _set_numeric_field(self, field: str, value: int) -> None:
+    def _set_numeric_field(self, field: str, value: int | float) -> None:
         if field == "grid_width":
-            self.state.resize_grid(max(MIN_GRID_WIDTH, value), self.state.grid_height)
+            self.state.resize_grid(max(MIN_GRID_WIDTH, int(value)), self.state.grid_height)
         elif field == "grid_height":
-            self.state.resize_grid(self.state.grid_width, max(MIN_GRID_HEIGHT, value))
+            self.state.resize_grid(self.state.grid_width, max(MIN_GRID_HEIGHT, int(value)))
         elif field == "initial_hp":
-            self.state.initial_hp = max(0, min(999, value))
+            self.state.initial_hp = max(0, min(999, int(value)))
         elif field == "initial_sanity":
-            self.state.initial_sanity = max(0, min(999, value))
+            self.state.initial_sanity = max(0, min(999, int(value)))
         elif field == "initial_battery":
-            self.state.initial_battery = max(0, min(999, value))
+            self.state.initial_battery = max(0, min(999, int(value)))
+        elif field == "player_speed":
+            self.state.player_speed = max(PLAYER_SPEED_MIN, min(PLAYER_SPEED_MAX, float(value)))
 
     def _set_object_numeric_field(self, field: str, text: str) -> None:
         cell = self.state.selected_object
@@ -2572,8 +2606,9 @@ class MapEditor:
         self._draw_number_input("initial_hp", "HP", self.state.initial_hp, pygame.Rect(panel.x + 42, py(230), 58, 28))
         self._draw_number_input("initial_sanity", "SAN", self.state.initial_sanity, pygame.Rect(panel.x + 132, py(230), 58, 28))
         self._draw_number_input("initial_battery", "BAT", self.state.initial_battery, pygame.Rect(panel.x + 222, py(230), 58, 28))
+        self._draw_number_input("player_speed", "SPD", self._format_number(self.state.player_speed), pygame.Rect(panel.x + 42, py(284), 58, 28))
 
-        object_y = 280
+        object_y = 334
         self._draw_text("Object Asset", (panel.x + 20, py(object_y)), self.small_font, COLOR_MUTED)
         self.object_dropdown_rect = pygame.Rect(panel.x + 24, py(object_y + 22), PANEL_WIDTH - 48, 28)
         pygame.draw.rect(self.screen, (35, 43, 45), self.object_dropdown_rect, border_radius=3)

@@ -1,5 +1,6 @@
 {
   "tile_size_cm": 60,
+  "cell_scale": 1.0,
   "floor": 1,
   "grid_width": 76,
   "grid_height": 27,
@@ -2400,6 +2401,28 @@
       "x": 75,
       "y": 21,
       "symbol": "#"
+    }
+  ],
+  "objects": [
+    {
+      "x": 54,
+      "y": 10,
+      "object_id": "3",
+      "rotation": 0,
+      "length": 1.0,
+      "width": 1.0,
+      "height": 1.0,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 11,
+      "object_id": "3",
+      "rotation": 0,
+      "length": 1.0,
+      "width": 1.0,
+      "height": 1.0,
+      "placement_height": 0.0
     }
   ]
 }

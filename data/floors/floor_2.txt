@@ -3,7 +3,8 @@
 ;
 ; Terrain: # wall, . floor, @ player start
 ; Doors: L lab, M machine/server lab-style, C classroom, G guard, P power, E exit
-; Objects: 1-9 story objects defined in src/map_data.py
+; Legacy objects: 1-9 story objects defined in src/map_data.py
+; Custom objects are stored in the floor metadata JSON.
 
 ############################################################################
 ############################################################################

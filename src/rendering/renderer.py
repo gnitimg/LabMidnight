@@ -264,9 +264,9 @@ class RaycastingRenderer:
 
     def _floor_light(self, row_distance, player, *, is_ceiling: bool, sample_width: int, xs):
         power_restored = player.flags.get("power_restored", False)
-        visible_distance = 7.0 if power_restored else 5.0
+        visible_distance = 9.0 if power_restored else 6.5
         if player.flashlight_on and player.flashlight_power > 0 and player.has_item("flashlight"):
-            visible_distance = 14.0 if power_restored else 12.0
+            visible_distance = 22.0 if power_restored else 18.0
 
         base_strength = 0.34 if power_restored else 0.26
         falloff = np.clip(1.0 - row_distance / visible_distance, 0.0, 1.0)
@@ -354,9 +354,9 @@ class RaycastingRenderer:
 
     def _draw_floor_depth_haze(self, player, *, is_ceiling: bool, horizon: int, target_top: int, target_height: int) -> None:
         power_restored = player.flags.get("power_restored", False)
-        visible_distance = 7.0 if power_restored else 5.0
+        visible_distance = 9.0 if power_restored else 6.5
         if player.flashlight_on and player.flashlight_power > 0 and player.has_item("flashlight"):
-            visible_distance = 14.0 if power_restored else 12.0
+            visible_distance = 22.0 if power_restored else 18.0
 
         overlay_height = target_height
         overlay = pygame.Surface((SCREEN_WIDTH, overlay_height), pygame.SRCALPHA)
@@ -497,8 +497,8 @@ class RaycastingRenderer:
         return start, start + visual_span
 
     def _draw_objects(self, player, elapsed: float, horizon: int, depth_buffer: list[float]) -> None:
-        panels: list[tuple[float, pygame.Surface, str, tuple[float, float], tuple[float, float], float, float, float]] = []
-        tops: list[tuple[float, pygame.Surface, list[tuple[float, float, float]], float]] = []
+        drawables: list[tuple[float, str, tuple]] = []
+        object_depth_buffer = depth_buffer[:]
         for anchor, obj in self.game_map.objects.items():
             if anchor in self.game_map.picked_objects:
                 continue
@@ -523,33 +523,36 @@ class RaycastingRenderer:
                 to_player_y = player.y - center_y
                 if to_player_x * normal[0] + to_player_y * normal[1] <= 0:
                     continue
-                texture = self._object_face_texture(asset_id, face)
+                texture = self._object_face_texture(asset_id, self._rotated_face(face, obj.rotation))
                 distance_key = (center_x - player.x) ** 2 + (center_y - player.y) ** 2
-                panels.append((distance_key, texture, face, p0, p1, bottom_z, object_top_z, side_light))
+                drawables.append((distance_key, "panel", (texture, p0, p1, bottom_z, object_top_z, side_light)))
 
             top_texture = self._object_face_texture(asset_id, "top")
             top_points = [(x0, y0, object_top_z), (x1, y0, object_top_z), (x1, y1, object_top_z), (x0, y1, object_top_z)]
             center_x = (x0 + x1) * 0.5
             center_y = (y0 + y1) * 0.5
-            tops.append(((center_x - player.x) ** 2 + (center_y - player.y) ** 2, top_texture, top_points, 0.82))
+            drawables.append(((center_x - player.x) ** 2 + (center_y - player.y) ** 2, "top", (top_texture, top_points, 0.82)))
 
-        for _, texture, points, side_light in sorted(tops, key=lambda item: item[0], reverse=True):
-            self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light)
-
-        for _, texture, _face, p0, p1, bottom_z, top_z, side_light in sorted(panels, key=lambda item: item[0], reverse=True):
-            self._draw_world_panel(
-                texture,
-                TILE_WALL,
-                p0,
-                p1,
-                player,
-                elapsed,
-                horizon,
-                depth_buffer,
-                bottom_z=bottom_z,
-                top_z=top_z,
-                side_light=side_light,
-            )
+        for _, kind, payload in sorted(drawables, key=lambda item: item[0], reverse=True):
+            if kind == "top":
+                texture, points, side_light = payload
+                self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light, object_depth_buffer)
+            else:
+                texture, p0, p1, bottom_z, top_z, side_light = payload
+                self._draw_world_panel(
+                    texture,
+                    TILE_WALL,
+                    p0,
+                    p1,
+                    player,
+                    elapsed,
+                    horizon,
+                    depth_buffer,
+                    bottom_z=bottom_z,
+                    top_z=top_z,
+                    side_light=side_light,
+                    object_depth_buffer=object_depth_buffer,
+                )
 
     def _object_height_units_from_side_textures(self, obj, x0: float, y0: float, x1: float, y1: float) -> float:
         asset_id = obj.asset_id or obj.object_id
@@ -611,6 +614,7 @@ class RaycastingRenderer:
         horizon: int,
         depth_buffer: list[float],
         side_light: float,
+        object_depth_buffer: list[float] | None = None,
     ) -> None:
         if not points:
             return
@@ -638,7 +642,8 @@ class RaycastingRenderer:
             return
         center_distance = sum(point[2] for point in projected) / len(projected)
         center_ray = min(NUM_RAYS - 1, max(0, int(((min_x + max_x) * 0.5) * NUM_RAYS / SCREEN_WIDTH)))
-        if center_distance > depth_buffer[center_ray] + 0.04:
+        occlusion_buffer = object_depth_buffer if object_depth_buffer is not None else depth_buffer
+        if center_distance > occlusion_buffer[center_ray] + 0.04:
             return
 
         target = pygame.Rect(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
@@ -650,7 +655,50 @@ class RaycastingRenderer:
         polygon = [(int(x - target.x), int(y - target.y)) for x, y, _forward in projected]
         pygame.draw.polygon(mask, (255, 255, 255, 255), polygon)
         patch.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        self.screen.blit(patch, target)
+        if object_depth_buffer is None:
+            self.screen.blit(patch, target)
+            return
+
+        visible_ranges: list[tuple[int, int]] = []
+        range_start: int | None = None
+        for screen_x in range(target.left, target.right):
+            ray_index = min(NUM_RAYS - 1, max(0, int(screen_x * NUM_RAYS / SCREEN_WIDTH)))
+            distance = self._projected_polygon_column_depth(projected, screen_x, center_distance)
+            if distance <= object_depth_buffer[ray_index] + 0.04:
+                object_depth_buffer[ray_index] = min(object_depth_buffer[ray_index], distance)
+                if range_start is None:
+                    range_start = screen_x
+            elif range_start is not None:
+                visible_ranges.append((range_start, screen_x))
+                range_start = None
+        if range_start is not None:
+            visible_ranges.append((range_start, target.right))
+
+        for start_x, end_x in visible_ranges:
+            source = pygame.Rect(start_x - target.x, 0, end_x - start_x, target.height)
+            self.screen.blit(patch, (start_x, target.y), source)
+
+    def _projected_polygon_column_depth(
+        self,
+        projected: list[tuple[float, float, float]],
+        screen_x: float,
+        fallback: float,
+    ) -> float:
+        intersections: list[float] = []
+        previous = projected[-1]
+        for current in projected:
+            x0, _y0, z0 = previous
+            x1, _y1, z1 = current
+            if abs(x1 - x0) < 1e-6:
+                if abs(screen_x - x0) < 0.5:
+                    intersections.extend((z0, z1))
+            elif min(x0, x1) <= screen_x <= max(x0, x1):
+                t = (screen_x - x0) / (x1 - x0)
+                intersections.append(z0 + (z1 - z0) * t)
+            previous = current
+        if not intersections:
+            return fallback
+        return max(RAY_NEAR_CLIP, min(intersections))
 
     def _clip_camera_polygon_near(self, points: list[tuple[float, float]], near: float) -> list[tuple[float, float]]:
         if not points:
@@ -810,6 +858,7 @@ class RaycastingRenderer:
         bottom_z: float = 0.0,
         top_z: float = CEILING_HEIGHT_UNITS,
         side_light: float = 1.0,
+        object_depth_buffer: list[float] | None = None,
     ) -> None:
         ax, ay, az = self._camera_space(p0[0], p0[1], player)
         bx, by, bz = self._camera_space(p1[0], p1[1], player)
@@ -849,6 +898,7 @@ class RaycastingRenderer:
         inv_z1 = 1.0 / max(RAY_NEAR_CLIP, bz)
         u_over_z0 = texture_u0 * inv_z0
         u_over_z1 = texture_u1 * inv_z1
+        occlusion_buffer = object_depth_buffer if object_depth_buffer is not None else depth_buffer
         for screen_x in range(start_x, end_x + 1):
             t = (screen_x - sx0) / span
             if not 0.0 <= t <= 1.0:
@@ -858,7 +908,7 @@ class RaycastingRenderer:
                 continue
             distance = max(RAY_NEAR_CLIP, 1.0 / inv_z)
             ray_index = min(NUM_RAYS - 1, max(0, int(screen_x * NUM_RAYS / SCREEN_WIDTH)))
-            if distance > depth_buffer[ray_index] + 0.04:
+            if distance > occlusion_buffer[ray_index] + 0.04:
                 continue
 
             top_y = horizon - VERTICAL_PROJECTION * (top_z - CAMERA_HEIGHT_UNITS) / distance
@@ -879,6 +929,8 @@ class RaycastingRenderer:
             else:
                 column.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
             self.screen.blit(column, (screen_x, visible_top))
+            if object_depth_buffer is not None:
+                object_depth_buffer[ray_index] = min(object_depth_buffer[ray_index], distance)
 
     def _visible_wall_span(self, top_y: float, bottom_y: float) -> tuple[int, int] | None:
         if bottom_y <= top_y:
@@ -982,9 +1034,9 @@ class RaycastingRenderer:
 
     def _shade_factor(self, distance: float, ray_angle: float, player, elapsed: float) -> float:
         power_restored = player.flags.get("power_restored", False)
-        visible_distance = 7.0 if power_restored else 5.0
+        visible_distance = 9.0 if power_restored else 6.5
         if player.flashlight_on and player.flashlight_power > 0 and player.has_item("flashlight"):
-            visible_distance = 14.0 if power_restored else 12.0
+            visible_distance = 22.0 if power_restored else 18.0
 
         distance_shade = max(0.10, 1.0 - distance / visible_distance)
         center_offset = abs((ray_angle - player.angle + math.pi) % math.tau - math.pi)

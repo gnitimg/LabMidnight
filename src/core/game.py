@@ -69,6 +69,7 @@ class Game:
             hp=int(initial["hp"]),
             sanity=initial["sanity"],
             flashlight_power=initial["flashlight_power"],
+            speed=initial["speed"],
         )
         self._bind_floor_systems()
         self.started_at = time.monotonic()
