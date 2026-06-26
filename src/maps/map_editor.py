@@ -94,11 +94,35 @@ OBJECT_LABELS = {
 
 ELEMENT_STORY = "story_required"
 ELEMENT_PICKUP = "pickup"
+ELEMENT_TRIGGER = "trigger"
+ELEMENT_DECORATION = "decoration"
+VALID_ELEMENT_TYPES = {ELEMENT_STORY, ELEMENT_PICKUP, ELEMENT_TRIGGER, ELEMENT_DECORATION}
+RESOURCE_ROLES = {"", "required", "optional", "decor"}
 
 LEGACY_OBJECT_IDS = set(OBJECT_LABELS)
 LEGACY_OBJECT_ASSET_ALIASES = {
     "1": "desk",
+    "2": "blackboard",
+    "9": "elevator",
 }
+FIXED_OBJECT_STYLES = {
+    "blackboard": {
+        "width": 0.08,
+        "height": 2.0,
+        "placement_height": 1.5,
+    },
+    "elevator": {
+        "height": 3.0,
+        "placement_height": 0.0,
+    },
+}
+WALL_FACING_OBJECT_IDS = {"blackboard", "elevator"}
+WALL_FACING_ROTATIONS = (
+    (0, -1, 0),
+    (1, 0, 270),
+    (0, 1, 180),
+    (-1, 0, 90),
+)
 
 OBJECT_NUMERIC_FIELDS = {
     "object_x",
@@ -109,11 +133,27 @@ OBJECT_NUMERIC_FIELDS = {
     "object_z",
     "object_drop_count",
 }
+DOOR_NUMERIC_FIELDS = {
+    "door_length",
+}
+ROOM_NUMERIC_FIELDS = {
+    "room_x",
+    "room_y",
+    "room_w",
+    "room_h",
+}
 FLOAT_NUMERIC_FIELDS = {"player_speed", "object_footprint_w", "object_footprint_d", "object_height", "object_z"}
-NUMERIC_FIELDS = {"grid_width", "grid_height", "initial_hp", "initial_sanity", "initial_battery", "player_speed"} | OBJECT_NUMERIC_FIELDS
+NUMERIC_FIELDS = (
+    {"grid_width", "grid_height", "initial_hp", "initial_sanity", "initial_battery", "player_speed"}
+    | OBJECT_NUMERIC_FIELDS
+    | DOOR_NUMERIC_FIELDS
+    | ROOM_NUMERIC_FIELDS
+)
 OBJECT_TEXT_FIELDS = {
     "object_pickup_item",
     "object_pickup_flag",
+    "object_trigger_id",
+    "object_resource_role",
     "object_interaction_prompt",
     "object_interaction_message",
     "object_required_item",
@@ -122,8 +162,10 @@ OBJECT_TEXT_FIELDS = {
 }
 OBJECT_TOGGLE_FIELDS = {
     "object_is_pickup",
+    "object_is_trigger",
     "object_random_drop",
     "object_remove_on_pickup",
+    "object_trigger_once",
 }
 
 
@@ -190,6 +232,10 @@ class ObjectPlacement:
     remove_on_pickup: bool = False
     random_drop: bool = False
     drop_count: int = 1
+    is_trigger: bool = False
+    trigger_id: str = ""
+    trigger_once: bool = True
+    resource_role: str = ""
 
     def label_char(self) -> str:
         return self.object_id if self.object_id in LEGACY_OBJECT_IDS else "O"
@@ -267,10 +313,13 @@ class MapEditorState:
         return state
 
     def _object_id_for_layout_symbol(self, symbol: str) -> str:
-        alias = LEGACY_OBJECT_ASSET_ALIASES.get(symbol)
+        return self._canonical_object_id(symbol)
+
+    def _canonical_object_id(self, object_id: str) -> str:
+        alias = LEGACY_OBJECT_ASSET_ALIASES.get(object_id)
         if alias is not None and alias in self.object_specs:
             return alias
-        return symbol
+        return object_id
 
     def _load_initial_config(self) -> None:
         if not MAP_CONFIG_PATH.exists():
@@ -371,9 +420,7 @@ class MapEditorState:
             object_id = str(raw.get("object_id") or raw.get("symbol") or raw.get("asset_id") or "")
             if not object_id:
                 continue
-            alias = LEGACY_OBJECT_ASSET_ALIASES.get(object_id)
-            if alias is not None and alias in self.object_specs:
-                object_id = alias
+            object_id = self._canonical_object_id(object_id)
             try:
                 rotation = int(raw.get("rotation", 0)) % 360
             except (TypeError, ValueError):
@@ -383,7 +430,7 @@ class MapEditorState:
 
     def _placement_from_metadata(self, object_id: str, rotation: int, raw: dict) -> ObjectPlacement:
         element_type = str(raw.get("element_type", ELEMENT_STORY))
-        if element_type not in {ELEMENT_STORY, ELEMENT_PICKUP}:
+        if element_type not in VALID_ELEMENT_TYPES:
             element_type = ELEMENT_STORY
         return ObjectPlacement(
             object_id,
@@ -403,7 +450,15 @@ class MapEditorState:
             self._read_bool(raw, "remove_on_pickup", False),
             self._read_bool(raw, "random_drop", False),
             max(1, self._read_int(raw, "drop_count", 1)),
+            self._read_bool(raw, "is_trigger", False) or bool(str(raw.get("trigger_id", "")).strip()) or element_type == ELEMENT_TRIGGER,
+            str(raw.get("trigger_id", "")).strip(),
+            self._read_bool(raw, "trigger_once", True),
+            self._read_resource_role(raw),
         )
+
+    def _read_resource_role(self, payload: dict) -> str:
+        value = str(payload.get("resource_role", "")).strip().lower()
+        return value if value in RESOURCE_ROLES else ""
 
     def _read_bool(self, payload: dict, key: str, default: bool = False) -> bool:
         value = payload.get(key, default)
@@ -484,6 +539,29 @@ class MapEditorState:
             if room.room_id == self.selected_room_id:
                 return room
         return None
+
+    def update_selected_room(
+        self,
+        *,
+        x: int | None = None,
+        y: int | None = None,
+        w: int | None = None,
+        h: int | None = None,
+    ) -> bool:
+        room = self.selected_room()
+        if room is None:
+            return False
+        if x is not None:
+            room.x = max(0, int(x))
+        if y is not None:
+            room.y = max(0, int(y))
+        if w is not None:
+            room.w = max(MIN_ROOM_SIZE, int(w))
+        if h is not None:
+            room.h = max(MIN_ROOM_SIZE, int(h))
+        self.rebuild_grid()
+        self.status = "Room placement updated."
+        return True
 
     def room_at(self, cell: tuple[int, int]) -> Room | None:
         for room in reversed(self.rooms):
@@ -687,6 +765,7 @@ class MapEditorState:
         *,
         auto_wall_snap: bool = False,
     ) -> None:
+        object_id = self._canonical_object_id(object_id)
         placement = ObjectPlacement(object_id, rotation % 360)
         target = cell
         if auto_wall_snap:
@@ -714,9 +793,9 @@ class MapEditorState:
         cx, cy = requested_cell
         directions = (
             (0, -1, 0),
-            (1, 0, 90),
+            (1, 0, 270),
             (0, 1, 180),
-            (-1, 0, 270),
+            (-1, 0, 90),
         )
         for radius in range(0, 4):
             for y in range(cy - radius, cy + radius + 1):
@@ -784,6 +863,7 @@ class MapEditorState:
         placement = self.objects.get(current_anchor)
         if placement is None:
             return False
+        object_id = self._canonical_object_id(object_id)
         updated = replace(
             placement,
             object_id=object_id,
@@ -820,11 +900,18 @@ class MapEditorState:
             "remove_on_pickup": placement.remove_on_pickup,
             "random_drop": placement.random_drop,
             "drop_count": placement.drop_count,
+            "is_trigger": placement.is_trigger,
+            "trigger_id": placement.trigger_id,
+            "trigger_once": placement.trigger_once,
+            "resource_role": placement.resource_role,
         }
         data.update(updates)
         element_type = str(data["element_type"])
-        if element_type not in {ELEMENT_STORY, ELEMENT_PICKUP}:
+        if element_type not in VALID_ELEMENT_TYPES:
             element_type = ELEMENT_STORY
+        resource_role = str(data["resource_role"]).strip().lower()
+        if resource_role not in RESOURCE_ROLES:
+            resource_role = ""
         self.objects[current_anchor] = replace(
             placement,
             element_type=element_type,
@@ -838,6 +925,10 @@ class MapEditorState:
             remove_on_pickup=bool(data["remove_on_pickup"]),
             random_drop=bool(data["random_drop"]),
             drop_count=max(1, int(data["drop_count"])),
+            is_trigger=bool(data["is_trigger"]),
+            trigger_id=str(data["trigger_id"]).strip(),
+            trigger_once=bool(data["trigger_once"]),
+            resource_role=resource_role,
         )
         self.status = "Object story binding updated."
         return True
@@ -862,10 +953,19 @@ class MapEditorState:
         )
 
     def _base_object_dimensions(self, object_id: str) -> tuple[float, float, float, float]:
+        object_id = self._canonical_object_id(object_id)
         spec = self.object_specs.get(object_id)
         if spec is None:
-            return 1.0, 1.0, 1.0, 0.0
-        return spec.length, spec.width, spec.height, spec.placement_height
+            length, width, height, placement_height = 1.0, 1.0, 1.0, 0.0
+        else:
+            length, width, height, placement_height = spec.length, spec.width, spec.height, spec.placement_height
+        style = FIXED_OBJECT_STYLES.get(object_id)
+        if style is not None:
+            length = float(style.get("length", length))
+            width = float(style.get("width", width))
+            height = float(style.get("height", height))
+            placement_height = float(style.get("placement_height", placement_height))
+        return length, width, height, placement_height
 
     def object_footprint_size(self, placement: ObjectPlacement) -> tuple[int, int]:
         length, width, _, _ = self.object_dimensions(placement)
@@ -950,6 +1050,138 @@ class MapEditorState:
         self.status = f"Placed {DOOR_SYMBOLS[symbol][0]} door at {target}."
         return True
 
+    def door_group_at(self, cell: tuple[int, int]) -> frozenset[tuple[int, int]]:
+        symbol = self.doors.get(cell)
+        if symbol is None:
+            return frozenset()
+        seen: set[tuple[int, int]] = set()
+        pending = [cell]
+        while pending:
+            current = pending.pop()
+            if current in seen or self.doors.get(current) != symbol:
+                continue
+            seen.add(current)
+            x, y = current
+            for neighbor in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if neighbor not in seen and self.doors.get(neighbor) == symbol:
+                    pending.append(neighbor)
+        return frozenset(seen)
+
+    def door_orientation_at(self, cell: tuple[int, int]) -> str:
+        group = self.door_group_at(cell)
+        if not group:
+            return "vertical"
+        xs = [x for x, _ in group]
+        ys = [y for _, y in group]
+        width = max(xs) - min(xs) + 1
+        height = max(ys) - min(ys) + 1
+        if width > height:
+            return "horizontal"
+        if height > width:
+            return "vertical"
+
+        x, y = cell
+        west_open = self._floorish(x - 1, y)
+        east_open = self._floorish(x + 1, y)
+        north_open = self._floorish(x, y - 1)
+        south_open = self._floorish(x, y + 1)
+        west_wall = self._door_wallish(x - 1, y)
+        east_wall = self._door_wallish(x + 1, y)
+        north_wall = self._door_wallish(x, y - 1)
+        south_wall = self._door_wallish(x, y + 1)
+        if (west_wall and east_wall and (north_open or south_open)) or (north_open and south_open and not (west_open and east_open)):
+            return "horizontal"
+        if north_wall and south_wall and (west_open or east_open):
+            return "vertical"
+        return "vertical"
+
+    def _door_wallish(self, x: int, y: int) -> bool:
+        return self.in_bounds(x, y) and self.grid[y][x] in {"#", WINDOW_SYMBOL, *DOOR_SYMBOLS}
+
+    def door_span_length(self, cell: tuple[int, int]) -> int:
+        group = self.door_group_at(cell)
+        if not group:
+            return 0
+        if self.door_orientation_at(cell) == "horizontal":
+            xs = [x for x, _ in group]
+            return max(xs) - min(xs) + 1
+        ys = [y for _, y in group]
+        return max(ys) - min(ys) + 1
+
+    def resize_selected_door(self, length: int) -> bool:
+        current = self.selected_door
+        if current is None or current not in self.doors:
+            return False
+        symbol = self.doors[current]
+        group = self.door_group_at(current)
+        if not group:
+            return False
+        length = max(1, int(length))
+        orientation = self.door_orientation_at(current)
+        old_group = set(group)
+        for cells in self._door_span_candidates(current, group, orientation, length):
+            if not self._door_span_fits(cells, old_group):
+                continue
+            for old_cell in old_group:
+                self.doors.pop(old_cell, None)
+            for cell in cells:
+                self.doors[cell] = symbol
+                self.overrides.pop(cell, None)
+            self.selected_door = current if current in cells else cells[0]
+            self.selected_room_id = None
+            self.selected_object = None
+            self.rebuild_grid()
+            self.status = f"Door span resized to {length}."
+            return True
+        self.status = "Door span does not fit valid wall cells."
+        return False
+
+    def _door_span_candidates(
+        self,
+        selected: tuple[int, int],
+        group: frozenset[tuple[int, int]],
+        orientation: str,
+        length: int,
+    ) -> list[list[tuple[int, int]]]:
+        xs = [x for x, _ in group]
+        ys = [y for _, y in group]
+        starts: list[int] = []
+        if orientation == "horizontal":
+            y = selected[1] if any(gy == selected[1] for _, gy in group) else min(ys)
+            old_start = min(xs)
+            old_end = max(xs)
+            center = (old_start + old_end) / 2
+            for candidate in (old_start, int(round(center - (length - 1) / 2)), selected[0] - length // 2, old_end - length + 1):
+                if candidate not in starts:
+                    starts.append(candidate)
+            return [[(x, y) for x in range(start, start + length)] for start in starts]
+
+        x = selected[0] if any(gx == selected[0] for gx, _ in group) else min(xs)
+        old_start = min(ys)
+        old_end = max(ys)
+        center = (old_start + old_end) / 2
+        for candidate in (old_start, int(round(center - (length - 1) / 2)), selected[1] - length // 2, old_end - length + 1):
+            if candidate not in starts:
+                starts.append(candidate)
+        return [[(x, y) for y in range(start, start + length)] for start in starts]
+
+    def _door_span_fits(self, cells: list[tuple[int, int]], old_group: set[tuple[int, int]]) -> bool:
+        for cell in cells:
+            x, y = cell
+            if not self.in_bounds(x, y):
+                return False
+            if cell in self.doors and cell not in old_group:
+                return False
+            if self.start_cell == cell:
+                return False
+            if self.object_anchor_at(cell) is not None:
+                return False
+            if self.grid[y][x] not in {"#", WINDOW_SYMBOL, *DOOR_SYMBOLS}:
+                return False
+            if not self._can_hold_door(x, y):
+                return False
+        return True
+
     def save(self) -> None:
         layout_path = floor_layout_path(self.floor)
         room_meta_path = floor_room_meta_path(self.floor)
@@ -983,7 +1215,7 @@ class MapEditorState:
         item = {
             "x": x,
             "y": y,
-            "object_id": placement.object_id,
+            "object_id": self._canonical_object_id(placement.object_id),
             "rotation": placement.rotation % 360,
             "length": length,
             "width": width,
@@ -996,6 +1228,14 @@ class MapEditorState:
             item["pickup_item"] = placement.pickup_item
         if placement.pickup_flag:
             item["pickup_flag"] = placement.pickup_flag
+        if placement.is_trigger:
+            item["is_trigger"] = True
+        if placement.trigger_id:
+            item["trigger_id"] = placement.trigger_id
+        if not placement.trigger_once:
+            item["trigger_once"] = False
+        if placement.resource_role:
+            item["resource_role"] = placement.resource_role
         if placement.interaction_prompt:
             item["interaction_prompt"] = placement.interaction_prompt
         if placement.interaction_message:
@@ -1424,7 +1664,7 @@ class MapEditor:
 
         typed = getattr(event, "unicode", "")
         if typed and typed.isdigit():
-            max_digits = 4 if self.editing_field in {"grid_width", "grid_height", "object_x", "object_y"} else 5
+            max_digits = 4 if self.editing_field in {"grid_width", "grid_height", "object_x", "object_y", "room_x", "room_y", "room_w", "room_h"} else 5
             if len(self.edit_buffer) < max_digits:
                 self.edit_buffer += typed
             return
@@ -1438,7 +1678,11 @@ class MapEditor:
         self._commit_editing_field()
         if field in {"name", "number"} and self.state.selected_room() is None:
             return
+        if field in ROOM_NUMERIC_FIELDS and self.state.selected_room() is None:
+            return
         if field in OBJECT_NUMERIC_FIELDS and self.state.selected_object is None:
+            return
+        if field in DOOR_NUMERIC_FIELDS and self.state.selected_door is None:
             return
         if field in OBJECT_TEXT_FIELDS and self.state.selected_object is None:
             return
@@ -1499,8 +1743,12 @@ class MapEditor:
         return ""
 
     def _numeric_field_value(self, field: str) -> str:
+        if field in ROOM_NUMERIC_FIELDS:
+            return self._room_numeric_field_value(field)
         if field in OBJECT_NUMERIC_FIELDS:
             return self._object_numeric_field_value(field)
+        if field in DOOR_NUMERIC_FIELDS:
+            return self._door_numeric_field_value(field)
         values = {
             "grid_width": self.state.grid_width,
             "grid_height": self.state.grid_height,
@@ -1512,6 +1760,26 @@ class MapEditor:
         value = values.get(field, 0)
         return self._format_number(value) if isinstance(value, float) else str(value)
 
+    def _room_numeric_field_value(self, field: str) -> str:
+        room = self.state.selected_room()
+        if room is None:
+            return "0"
+        values = {
+            "room_x": room.x,
+            "room_y": room.y,
+            "room_w": room.w,
+            "room_h": room.h,
+        }
+        return str(values.get(field, 0))
+
+    def _door_numeric_field_value(self, field: str) -> str:
+        cell = self.state.selected_door
+        if cell is None:
+            return "0"
+        if field == "door_length":
+            return str(self.state.door_span_length(cell))
+        return "0"
+
     def _object_text_field_value(self, field: str) -> str:
         cell = self.state.selected_object
         if cell is None:
@@ -1522,6 +1790,8 @@ class MapEditor:
         values = {
             "object_pickup_item": placement.pickup_item,
             "object_pickup_flag": placement.pickup_flag,
+            "object_trigger_id": placement.trigger_id,
+            "object_resource_role": placement.resource_role,
             "object_interaction_prompt": placement.interaction_prompt,
             "object_interaction_message": placement.interaction_message,
             "object_required_item": placement.required_item,
@@ -1567,6 +1837,16 @@ class MapEditor:
             self.state.initial_battery = max(0, min(999, int(value)))
         elif field == "player_speed":
             self.state.player_speed = max(PLAYER_SPEED_MIN, min(PLAYER_SPEED_MAX, float(value)))
+        elif field == "door_length":
+            self.state.resize_selected_door(max(1, int(value)))
+        elif field == "room_x":
+            self.state.update_selected_room(x=max(0, int(value)))
+        elif field == "room_y":
+            self.state.update_selected_room(y=max(0, int(value)))
+        elif field == "room_w":
+            self.state.update_selected_room(w=max(MIN_ROOM_SIZE, int(value)))
+        elif field == "room_h":
+            self.state.update_selected_room(h=max(MIN_ROOM_SIZE, int(value)))
 
     def _set_object_numeric_field(self, field: str, text: str) -> None:
         cell = self.state.selected_object
@@ -1597,6 +1877,8 @@ class MapEditor:
         updates = {
             "object_pickup_item": {"pickup_item": text},
             "object_pickup_flag": {"pickup_flag": text},
+            "object_trigger_id": {"trigger_id": text, "is_trigger": bool(text.strip())},
+            "object_resource_role": {"resource_role": text},
             "object_interaction_prompt": {"interaction_prompt": text},
             "object_interaction_message": {"interaction_message": text},
             "object_required_item": {"required_item": text},
@@ -1807,6 +2089,12 @@ class MapEditor:
             self.state.update_selected_object_binding(random_drop=not placement.random_drop, element_type=ELEMENT_PICKUP)
         elif field == "object_remove_on_pickup":
             self.state.update_selected_object_binding(remove_on_pickup=not placement.remove_on_pickup)
+        elif field == "object_is_trigger":
+            is_trigger = not placement.is_trigger
+            element_type = ELEMENT_TRIGGER if is_trigger else ELEMENT_STORY
+            self.state.update_selected_object_binding(is_trigger=is_trigger, element_type=element_type)
+        elif field == "object_trigger_once":
+            self.state.update_selected_object_binding(trigger_once=not placement.trigger_once)
         if self._state_snapshot() != before:
             self.undo_stack.append(before)
             if len(self.undo_stack) > HISTORY_LIMIT:
@@ -2363,6 +2651,10 @@ class MapEditor:
         else:
             length = float(visible_width)
             width = float(visible_height)
+        _, original_width, _, _ = self.state.object_dimensions(original_placement)
+        object_id = self.state._canonical_object_id(original_placement.object_id)
+        if object_id in WALL_FACING_OBJECT_IDS and original_width <= 0.15:
+            width = original_width
 
         if self.state.update_selected_object(anchor=(new_left, new_top), length=length, width=width):
             self.state.status = f"Object footprint resized to {visible_width} x {visible_height}."
@@ -2665,6 +2957,8 @@ class MapEditor:
                 self._draw_object_resize_handles(anchor, placement)
 
     def _object_fill_color(self, placement: ObjectPlacement) -> tuple[int, int, int]:
+        if placement.is_trigger or placement.element_type == ELEMENT_TRIGGER:
+            return (136, 92, 66)
         if placement.element_type == ELEMENT_PICKUP:
             return (82, 128, 86)
         if placement.object_id in LEGACY_OBJECT_IDS:
@@ -2802,15 +3096,21 @@ class MapEditor:
             self._draw_text("Selected room", (panel.x + 20, py(selection_y)), self.font, COLOR_TEXT)
             self._draw_input("name", room.name, pygame.Rect(panel.x + 24, py(selection_y + 28), PANEL_WIDTH - 48, 28))
             self._draw_input("number", room.number, pygame.Rect(panel.x + 24, py(selection_y + 92), PANEL_WIDTH - 48, 28))
-            self._draw_text(f"Pos: {room.x}, {room.y}", (panel.x + 24, py(selection_y + 132)), self.small_font, COLOR_MUTED)
-            self._draw_text(f"Size: {room.w} x {room.h} tiles", (panel.x + 24, py(selection_y + 154)), self.small_font, COLOR_MUTED)
+            self._draw_number_input("room_x", "X", room.x, pygame.Rect(panel.x + 24, py(selection_y + 146), 58, 28))
+            self._draw_number_input("room_y", "Y", room.y, pygame.Rect(panel.x + 112, py(selection_y + 146), 58, 28))
+            self._draw_number_input("room_w", "W", room.w, pygame.Rect(panel.x + 24, py(selection_y + 200), 58, 28))
+            self._draw_number_input("room_h", "H", room.h, pygame.Rect(panel.x + 112, py(selection_y + 200), 58, 28))
         elif self.state.selected_door is not None:
             cell = self.state.selected_door
             symbol = self.state.doors.get(cell, "?")
+            orientation = self.state.door_orientation_at(cell)
+            length = self.state.door_span_length(cell)
             self._draw_text("Selected door", (panel.x + 20, py(selection_y)), self.font, COLOR_TEXT)
             self._draw_text(f"Type: {symbol} {DOOR_SYMBOLS.get(symbol, ('Unknown',))[0]}", (panel.x + 24, py(selection_y + 32)), self.font, COLOR_ACCENT)
             self._draw_text(f"Cell: {cell[0]}, {cell[1]}", (panel.x + 24, py(selection_y + 62)), self.small_font, COLOR_MUTED)
-            self._draw_text("Delete removes it.", (panel.x + 24, py(selection_y + 96)), self.small_font, COLOR_MUTED)
+            self._draw_text(f"Orientation: {orientation}", (panel.x + 24, py(selection_y + 92)), self.small_font, COLOR_MUTED)
+            self._draw_number_input("door_length", "Len", length, pygame.Rect(panel.x + 24, py(selection_y + 124), 58, 28))
+            self._draw_text("Delete removes the selected cell.", (panel.x + 24, py(selection_y + 174)), self.small_font, COLOR_MUTED)
         elif self.state.selected_object is not None:
             cell = self.state.selected_object
             placement = self.state.objects.get(cell)
@@ -2851,26 +3151,31 @@ class MapEditor:
 
     def _draw_object_story_editor(self, panel: pygame.Rect, py, y: int, placement: ObjectPlacement) -> None:
         is_pickup = placement.element_type == ELEMENT_PICKUP
-        title = "Pickup Element" if is_pickup else "Story Element"
+        is_trigger = placement.is_trigger or placement.element_type == ELEMENT_TRIGGER
+        title = "Pickup Element" if is_pickup else "Trigger Element" if is_trigger else "Story Element"
         self._draw_text(title, (panel.x + 20, py(y)), self.font, COLOR_TEXT)
         self._draw_checkbox("object_is_pickup", "Pickup", is_pickup, pygame.Rect(panel.x + 24, py(y + 34), 18, 18))
-        self._draw_checkbox("object_remove_on_pickup", "Remove after pickup", placement.remove_on_pickup, pygame.Rect(panel.x + 126, py(y + 34), 18, 18))
+        self._draw_checkbox("object_is_trigger", "Trigger", is_trigger, pygame.Rect(panel.x + 126, py(y + 34), 18, 18))
+        self._draw_checkbox("object_remove_on_pickup", "Remove", placement.remove_on_pickup, pygame.Rect(panel.x + 24, py(y + 62), 18, 18))
+        self._draw_checkbox("object_trigger_once", "Once", placement.trigger_once, pygame.Rect(panel.x + 126, py(y + 62), 18, 18))
 
-        field_y = y + 86
-        self._draw_text_input("object_pickup_item", "Item", placement.pickup_item, pygame.Rect(panel.x + 24, py(field_y), PANEL_WIDTH - 48, 28))
-        self._draw_text_input("object_pickup_flag", "Flag", placement.pickup_flag, pygame.Rect(panel.x + 24, py(field_y + 62), PANEL_WIDTH - 48, 28))
-        self._draw_text_input("object_interaction_prompt", "Prompt", placement.interaction_prompt, pygame.Rect(panel.x + 24, py(field_y + 124), PANEL_WIDTH - 48, 28))
-        self._draw_text_input("object_interaction_message", "Message", placement.interaction_message, pygame.Rect(panel.x + 24, py(field_y + 186), PANEL_WIDTH - 48, 28))
-        self._draw_text_input("object_required_item", "Need Item", placement.required_item, pygame.Rect(panel.x + 24, py(field_y + 248), PANEL_WIDTH - 48, 28))
-        self._draw_text_input("object_required_flag", "Need Flag", placement.required_flag, pygame.Rect(panel.x + 24, py(field_y + 310), PANEL_WIDTH - 48, 28))
-        self._draw_text_input("object_failure_message", "Fail Msg", placement.failure_message, pygame.Rect(panel.x + 24, py(field_y + 372), PANEL_WIDTH - 48, 28))
+        field_y = y + 114
+        self._draw_text_input("object_trigger_id", "Trigger ID", placement.trigger_id, pygame.Rect(panel.x + 24, py(field_y), PANEL_WIDTH - 48, 28))
+        self._draw_text_input("object_resource_role", "Role", placement.resource_role, pygame.Rect(panel.x + 24, py(field_y + 62), PANEL_WIDTH - 48, 28))
+        self._draw_text_input("object_pickup_item", "Item", placement.pickup_item, pygame.Rect(panel.x + 24, py(field_y + 124), PANEL_WIDTH - 48, 28))
+        self._draw_text_input("object_pickup_flag", "Flag", placement.pickup_flag, pygame.Rect(panel.x + 24, py(field_y + 186), PANEL_WIDTH - 48, 28))
+        self._draw_text_input("object_interaction_prompt", "Prompt", placement.interaction_prompt, pygame.Rect(panel.x + 24, py(field_y + 248), PANEL_WIDTH - 48, 28))
+        self._draw_text_input("object_interaction_message", "Message", placement.interaction_message, pygame.Rect(panel.x + 24, py(field_y + 310), PANEL_WIDTH - 48, 28))
+        self._draw_text_input("object_required_item", "Need Item", placement.required_item, pygame.Rect(panel.x + 24, py(field_y + 372), PANEL_WIDTH - 48, 28))
+        self._draw_text_input("object_required_flag", "Need Flag", placement.required_flag, pygame.Rect(panel.x + 24, py(field_y + 434), PANEL_WIDTH - 48, 28))
+        self._draw_text_input("object_failure_message", "Fail Msg", placement.failure_message, pygame.Rect(panel.x + 24, py(field_y + 496), PANEL_WIDTH - 48, 28))
 
         if is_pickup:
-            self._draw_checkbox("object_random_drop", "Random drop", placement.random_drop, pygame.Rect(panel.x + 24, py(field_y + 424), 18, 18))
-            self._draw_number_input("object_drop_count", "Count", placement.drop_count, pygame.Rect(panel.x + 156, py(field_y + 418), 58, 28))
-            self._draw_text("Count is per same item on this floor.", (panel.x + 24, py(field_y + 458)), self.small_font, COLOR_MUTED)
+            self._draw_checkbox("object_random_drop", "Random drop", placement.random_drop, pygame.Rect(panel.x + 24, py(field_y + 548), 18, 18))
+            self._draw_number_input("object_drop_count", "Count", placement.drop_count, pygame.Rect(panel.x + 156, py(field_y + 542), 58, 28))
+            self._draw_text("Count is per same item on this floor.", (panel.x + 24, py(field_y + 582)), self.small_font, COLOR_MUTED)
         else:
-            self._draw_text("Story pickup can grant Item and set Flag together.", (panel.x + 24, py(field_y + 424)), self.small_font, COLOR_MUTED)
+            self._draw_text("Triggers run by Trigger ID; pickups grant Item or Flag.", (panel.x + 24, py(field_y + 548)), self.small_font, COLOR_MUTED)
 
     def _draw_checkbox(self, field: str, label: str, checked: bool, rect: pygame.Rect) -> None:
         self.panel_toggles[field] = rect

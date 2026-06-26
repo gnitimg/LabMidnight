@@ -19,6 +19,11 @@ from src.settings import (
 )
 
 
+TRANSITION_OBJECT_IDS = {"elevator", "exit_panel"}
+PICKUP_ELEMENT_TYPE = "pickup"
+TRIGGER_ELEMENT_TYPE = "trigger"
+
+
 class InteractionSystem:
     def __init__(self, game_map) -> None:
         self.game_map = game_map
@@ -112,15 +117,24 @@ class InteractionSystem:
 
     def _object_has_interaction(self, obj) -> bool:
         return bool(
-            obj.prompt
-            or obj.description
-            or obj.pickup_item
-            or obj.pickup_flag
-            or obj.interaction_message
-            or obj.required_item
-            or obj.required_flag
-            or obj.failure_message
-            or obj.remove_on_pickup
+            obj.object_id in TRANSITION_OBJECT_IDS
+            or self._object_is_trigger(obj)
+            or self._object_is_pickup(obj)
+        )
+
+    def _object_is_trigger(self, obj) -> bool:
+        return bool(
+            getattr(obj, "is_trigger", False)
+            or str(getattr(obj, "trigger_id", "")).strip()
+            or getattr(obj, "element_type", "") == TRIGGER_ELEMENT_TYPE
+        )
+
+    def _object_is_pickup(self, obj) -> bool:
+        return bool(
+            getattr(obj, "element_type", "") == PICKUP_ELEMENT_TYPE
+            or getattr(obj, "resource_role", "") == "optional"
+            or str(getattr(obj, "pickup_item", "")).strip()
+            or str(getattr(obj, "pickup_flag", "")).strip()
         )
 
     def prompt_for(self, player) -> str:
@@ -129,9 +143,15 @@ class InteractionSystem:
             return ""
         kind, cell, payload = target
         if kind == "object":
-            if payload.object_id in {"elevator", "exit_panel"}:
+            if payload.object_id == "elevator" and not player.flags.get("power_restored", False):
+                return "电梯未通电"
+            if payload.object_id in TRANSITION_OBJECT_IDS:
                 return "按 Space 使用东11C货梯"
-            return payload.prompt
+            if payload.prompt:
+                return payload.prompt
+            if self._object_is_pickup(payload):
+                return f"按 Space 拾取{payload.name}"
+            return f"按 Space 检查{payload.name}"
         tile = payload
         role = self.game_map.door_role_at(*cell)
         if tile == TILE_EXIT_DOOR:
@@ -175,7 +195,7 @@ class InteractionSystem:
 
         if tile == TILE_LAB_DOOR:
             if role == "server":
-                if not player.flags.get("power_restored", False):
+                if not game.is_floor_power_restored():
                     game.audio.play("error")
                     return "机房门禁没有反应，电力尚未恢复。"
                 self.game_map.open_door(x, y)
@@ -225,19 +245,13 @@ class InteractionSystem:
         return "打不开。"
 
     def _interact_configured_object(self, game, cell: tuple[int, int], obj) -> str | None:
-        has_binding = (
-            obj.element_type == "pickup"
-            or bool(obj.pickup_item)
-            or bool(obj.pickup_flag)
-            or bool(obj.interaction_message)
-            or bool(obj.required_item)
-            or bool(obj.required_flag)
-            or bool(obj.failure_message)
-            or bool(obj.remove_on_pickup)
-        )
-        if not has_binding:
-            return None
+        if self._object_is_trigger(obj):
+            return self._interact_trigger_object(game, cell, obj)
+        if self._object_is_pickup(obj):
+            return self._interact_pickup_object(game, cell, obj)
+        return None
 
+    def _interact_pickup_object(self, game, cell: tuple[int, int], obj) -> str:
         player = game.player
         if obj.required_item and not player.has_item(obj.required_item):
             game.audio.play("error")
@@ -247,7 +261,7 @@ class InteractionSystem:
             return obj.failure_message or f"Story condition not met: {obj.required_flag}."
 
         item_id = obj.pickup_item.strip() if obj.pickup_item else ""
-        if obj.element_type == "pickup" and not item_id:
+        if obj.element_type == PICKUP_ELEMENT_TYPE and not item_id:
             item_id = obj.object_id
 
         gained_item = False
@@ -284,89 +298,149 @@ class InteractionSystem:
 
         return obj.interaction_message or obj.description or "Nothing else here."
 
-    def _interact_object(self, game, cell: tuple[int, int], obj) -> str:
+    def _interact_trigger_object(self, game, cell: tuple[int, int], obj) -> str:
         player = game.player
-        x, y = cell
+        trigger_id = str(obj.trigger_id).strip() or obj.object_id
+
+        if obj.required_item and not player.has_item(obj.required_item):
+            game.audio.play("error")
+            return obj.failure_message or f"Need {obj.required_item}."
+        if obj.required_flag and not player.flags.get(obj.required_flag, False):
+            game.audio.play("error")
+            return obj.failure_message or f"Story condition not met: {obj.required_flag}."
+
+        if trigger_id in {"lab_desk_supplies", "lab_desk", "desk"}:
+            result = self._trigger_lab_desk_supplies(game)
+        elif trigger_id in {"blackboard_clue", "blackboard", "lectern"}:
+            result = self._trigger_blackboard_clue(game)
+        elif trigger_id == "security_desk":
+            result = self._trigger_security_desk(game)
+        elif trigger_id == "fuse_cabinet":
+            result = self._trigger_fuse_cabinet(game, cell)
+        elif trigger_id == "power_box":
+            result = self._trigger_power_box(game)
+        elif trigger_id == "server_terminal":
+            result = self._trigger_server_terminal(game)
+        else:
+            result = self._trigger_generic(game, cell, obj, trigger_id)
+
+        if obj.trigger_once:
+            player.flags[f"triggered_{trigger_id}"] = True
+        return result
+
+    def _trigger_generic(self, game, cell: tuple[int, int], obj, trigger_id: str) -> str:
+        player = game.player
+        triggered_flag = f"triggered_{trigger_id}"
+        if obj.trigger_once and player.flags.get(triggered_flag, False):
+            return obj.interaction_message or obj.description or "这里已经没有新的反应。"
+
+        item_id = obj.pickup_item.strip() if obj.pickup_item else ""
+        gained_item = False
+        if item_id == "battery":
+            player.add_item(item_id)
+            player.restore_flashlight(BATTERY_RESTORE)
+            gained_item = True
+        elif item_id and not player.has_item(item_id):
+            player.add_item(item_id)
+            gained_item = True
+            if item_id == "flashlight":
+                player.flashlight_on = True
+
+        flag_set = False
+        if obj.pickup_flag:
+            player.flags[obj.pickup_flag] = True
+            flag_set = True
+
+        if obj.remove_on_pickup and (gained_item or flag_set or not item_id):
+            self.game_map.remove_object(*cell)
+
+        if gained_item or flag_set:
+            game.audio.play("item_pick")
+
+        return obj.interaction_message or obj.description or "这里的状态被触发了。"
+
+    def _trigger_lab_desk_supplies(self, game) -> str:
+        player = game.player
+        gained = []
+        if not player.has_item("flashlight"):
+            player.add_item("flashlight")
+            player.flashlight_on = True
+            gained.append("手电筒")
+        if not player.has_item("lab_key"):
+            player.add_item("lab_key")
+            gained.append("实验室钥匙")
+        if gained:
+            game.audio.play("item_pick")
+            return "你检查实验桌，获得了：" + "、".join(gained) + "。"
+        return "桌面只剩电脑错误提示：运行超时。"
+
+    def _trigger_blackboard_clue(self, game) -> str:
+        player = game.player
+        if not player.has_item("note_a"):
+            player.add_item("note_a")
+            player.flags["got_blackboard_clue"] = True
+            player.sanity = max(0, player.sanity - 7)
+            game.audio.play("laugh", volume=0.7, cooldown=1.0)
+            return "黑板上写着 0204。你获得纸条 A：不要回答点名。"
+        player.flags["got_blackboard_clue"] = True
+        return "黑板上的数字仍停在 0204，像刚写上去。"
+
+    def _trigger_security_desk(self, game) -> str:
+        player = game.player
+        gained = []
+        if not player.has_item("map"):
+            player.add_item("map")
+            gained.append("实验楼平面图")
+        if not player.has_item("note_b"):
+            player.add_item("note_b")
+            gained.append("纸条 B")
+        if gained:
+            game.audio.play("item_pick")
+            return "值班记录停在 02:00。你获得了：" + "、".join(gained) + "。"
+        return "值班记录从 02:00 开始不断重复。"
+
+    def _trigger_fuse_cabinet(self, game, cell: tuple[int, int]) -> str:
+        player = game.player
+        if not player.has_item("fuse"):
+            player.add_item("fuse")
+            self.game_map.remove_object(*cell)
+            game.audio.play("item_pick")
+            return "你从工具柜中拿到一枚保险丝。"
+        return "工具柜已经空了。"
+
+    def _trigger_power_box(self, game) -> str:
+        player = game.player
+        if not player.has_item("fuse"):
+            game.audio.play("error")
+            return "配电箱里少了一枚保险丝。"
+        if game.is_floor_power_restored():
+            return "本层电力已经恢复，机房门禁和电梯现在应该能用了。"
+        game.restore_current_floor_power()
+        player.sanity = min(100, player.sanity + 6)
+        game.audio.stop_loop("lecture_loop")
+        game.audio.play_loop("ambient_power", volume=0.42)
+        game.audio.play("power_restore", volume=0.85, cooldown=1.0)
+        return f"{game.current_floor}F 的保险丝接上后，本层电力恢复了。"
+
+    def _trigger_server_terminal(self, game) -> str:
+        player = game.player
+        if not game.is_floor_power_restored():
+            game.audio.play("error")
+            return "屏幕没有亮，机房还没有供电。"
+        if not player.has_item("access_card"):
+            player.add_item("access_card")
+            player.sanity = max(0, player.sanity - 6)
+            game.audio.play("cry", volume=0.65, cooldown=1.0)
+            return "屏幕显示 LabMidnight.map。你在键盘旁找到一张门禁卡。"
+        return "屏幕上显示：玩家位置，四层实验楼。出口状态：等待确认。"
+
+    def _interact_object(self, game, cell: tuple[int, int], obj) -> str:
+        if obj.object_id in TRANSITION_OBJECT_IDS:
+            return self._interact_transition_panel(game, cell, obj)
+
         configured = self._interact_configured_object(game, cell, obj)
         if configured is not None:
             return configured
-
-        if obj.object_id in {"lab_desk", "desk"}:
-            gained = []
-            if not player.has_item("flashlight"):
-                player.add_item("flashlight")
-                player.flashlight_on = True
-                gained.append("手电筒")
-            if not player.has_item("lab_key"):
-                player.add_item("lab_key")
-                gained.append("实验室钥匙")
-            if gained:
-                game.audio.play("item_pick")
-                return "你检查实验桌，获得了：" + "、".join(gained) + "。"
-            return "桌面只剩电脑错误提示：运行超时。"
-
-        if obj.object_id in {"blackboard", "lectern"}:
-            if not player.has_item("note_a"):
-                player.add_item("note_a")
-                player.sanity = max(0, player.sanity - 7)
-                game.audio.play("laugh", volume=0.7, cooldown=1.0)
-                return "黑板上写着 0204。你获得纸条 A：不要回答点名。"
-            return "黑板上的数字仍停在 0204，像刚写上去。"
-
-        if obj.object_id == "security_desk":
-            gained = []
-            if not player.has_item("map"):
-                player.add_item("map")
-                gained.append("实验楼平面图")
-            if not player.has_item("note_b"):
-                player.add_item("note_b")
-                gained.append("纸条 B")
-            if gained:
-                game.audio.play("item_pick")
-                return "值班记录停在 02:00。你获得了：" + "、".join(gained) + "。"
-            return "值班记录从 02:00 开始不断重复。"
-
-        if obj.object_id == "fuse_cabinet":
-            if not player.has_item("fuse"):
-                player.add_item("fuse")
-                self.game_map.remove_object(x, y)
-                game.audio.play("item_pick")
-                return "你从工具柜中拿到一枚保险丝。"
-            return "工具柜已经空了。"
-
-        if obj.object_id == "battery":
-            player.add_item("battery")
-            player.restore_flashlight(BATTERY_RESTORE)
-            self.game_map.remove_object(x, y)
-            game.audio.play("item_pick")
-            return "你拾起备用电池，手电电量恢复了一些。"
-
-        if obj.object_id == "power_box":
-            if not player.has_item("fuse"):
-                game.audio.play("error")
-                return "配电箱里少了一枚保险丝。"
-            if player.flags.get("power_restored", False):
-                return "电力已经恢复了一部分，机房门禁现在应该能用了。"
-            player.flags["power_restored"] = True
-            player.sanity = min(100, player.sanity + 6)
-            game.audio.stop_loop("lecture_loop")
-            game.audio.play_loop("ambient_power", volume=0.42)
-            game.audio.play("power_restore", volume=0.85, cooldown=1.0)
-            return "保险丝装上后，整栋楼像是短暂地醒了一下。"
-
-        if obj.object_id == "server_terminal":
-            if not player.flags.get("power_restored", False):
-                game.audio.play("error")
-                return "屏幕没有亮，机房还没有供电。"
-            if not player.has_item("access_card"):
-                player.add_item("access_card")
-                player.sanity = max(0, player.sanity - 6)
-                game.audio.play("cry", volume=0.65, cooldown=1.0)
-                return "屏幕显示 LabMidnight.map。你在键盘旁找到一张门禁卡。"
-            return "屏幕上显示：玩家位置，四层实验楼。出口状态：等待确认。"
-
-        if obj.object_id in {"exit_panel", "elevator"}:
-            return self._interact_transition_panel(game, cell, obj)
 
         game.audio.play("error")
         return obj.description or "这里没有更多线索。"
@@ -393,6 +467,9 @@ class InteractionSystem:
             return ""
 
         targets = [floor for floor in range(BUILDING_BOTTOM_FLOOR, BUILDING_TOP_FLOOR + 1) if floor != game.current_floor]
+        if obj.object_id == "elevator" and not game.is_floor_power_restored():
+            game.audio.play("error")
+            return "电梯没有供电。先在本层接上保险丝。"
         game.audio.play("door_open")
         game.open_floor_transition_prompt(targets, "东11C货梯", entry_kind="elevator", source_cell=cell)
         return ""

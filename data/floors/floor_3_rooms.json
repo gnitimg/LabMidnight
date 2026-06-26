@@ -70,7 +70,7 @@
     {
       "room_id": 8,
       "x": 140,
-      "y": 0,
+      "y": 1,
       "w": 8,
       "h": 20,
       "name": "Room 8",
@@ -88,7 +88,7 @@
     {
       "room_id": 10,
       "x": 78,
-      "y": 6,
+      "y": 8,
       "w": 72,
       "h": 14,
       "name": "Room 10",
@@ -141,8 +141,8 @@
     },
     {
       "room_id": 16,
-      "x": 78,
-      "y": 26,
+      "x": 80,
+      "y": 21,
       "w": 72,
       "h": 10,
       "name": "Room 16",
@@ -36405,12 +36405,12 @@
     {
       "x": 21,
       "y": 9,
-      "object_id": "2",
+      "object_id": "blackboard",
       "rotation": 0,
       "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0
+      "width": 0.08,
+      "height": 2.0,
+      "placement_height": 1.5
     },
     {
       "x": 21,
@@ -36420,7 +36420,12 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "security_desk",
+      "trigger_once": true,
+      "resource_role": "required"
     },
     {
       "x": 24,
@@ -36610,7 +36615,12 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "fuse_cabinet",
+      "trigger_once": true,
+      "resource_role": "required"
     },
     {
       "x": 36,
@@ -36840,7 +36850,12 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "power_box",
+      "trigger_once": true,
+      "resource_role": "required"
     },
     {
       "x": 50,
@@ -37010,7 +37025,12 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "server_terminal",
+      "trigger_once": true,
+      "resource_role": "required"
     },
     {
       "x": 58,
@@ -37190,7 +37210,13 @@
       "length": 8.0,
       "width": 0.08,
       "height": 2.0,
-      "placement_height": 1.5
+      "placement_height": 1.5,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "blackboard_clue",
+      "trigger_once": true,
+      "resource_role": "required",
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 70,
@@ -37310,7 +37336,13 @@
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "lab_desk_supplies",
+      "trigger_once": true,
+      "resource_role": "required",
+      "interaction_prompt": "? Space ?????"
     },
     {
       "x": 75,
@@ -37410,7 +37442,13 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 101,
@@ -37420,7 +37458,13 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 102,
@@ -37430,7 +37474,13 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 106,
@@ -37440,7 +37490,13 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 106,
@@ -37450,7 +37506,13 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 120,
@@ -37460,7 +37522,13 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 120,
@@ -37470,7 +37538,13 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 122,
@@ -37480,16 +37554,22 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 126,
       "y": 40,
-      "object_id": "9",
+      "object_id": "elevator",
       "rotation": 0,
       "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
+      "width": 0.08,
+      "height": 3.0,
       "placement_height": 0.0
     },
     {
@@ -37500,26 +37580,22 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
-      "x": 140,
-      "y": 2,
-      "object_id": "9",
+      "x": 141,
+      "y": 1,
+      "object_id": "elevator",
       "rotation": 0,
-      "length": 4.0,
-      "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0
-    },
-    {
-      "x": 144,
-      "y": 8,
-      "object_id": "9",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
+      "length": 6.0,
+      "width": 0.08,
+      "height": 5.0,
       "placement_height": 0.0
     }
   ]

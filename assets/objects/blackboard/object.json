@@ -2,8 +2,8 @@
   "name": "Blackboard",
   "length": 8.0,
   "width": 0.08,
-  "height": 1.2,
-  "placement_height": 2.0,
+  "height": 2.0,
+  "placement_height": 1.5,
   "solid": true,
   "prompt": "Press Space to inspect Blackboard",
   "description": "A long wall-mounted blackboard."

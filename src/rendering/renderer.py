@@ -44,6 +44,7 @@ THIN_PANEL_RENDER_OFFSET = 0.06
 THIN_PANEL_NEAR_CLIP = 0.01
 THIN_PANEL_OCCLUSION_SLACK = 0.45
 DEFAULT_OCCLUSION_SLACK = 0.04
+WALL_PANEL_OBJECT_IDS = {"blackboard", "elevator", "exit_panel"}
 
 
 class RaycastingRenderer:
@@ -605,7 +606,7 @@ class RaycastingRenderer:
         footprint_depth = max(0.0, y1 - y0)
         thin_side = min(footprint_width, footprint_depth)
         long_side = max(footprint_width, footprint_depth)
-        return obj.placement_height > 0.0 and thin_side <= 0.15 and long_side >= 1.0
+        return thin_side <= 0.15 and long_side >= 1.0 and (obj.placement_height > 0.0 or obj.object_id in WALL_PANEL_OBJECT_IDS)
 
     def _object_face_data(
         self,
@@ -674,7 +675,7 @@ class RaycastingRenderer:
         texture = self.textures.for_object_face(object_id, face)
         if texture is not None:
             return texture
-        if object_id == "elevator":
+        if object_id == "elevator" and face == "front":
             elevator_texture = self.textures.get(TEXTURE_ELEVATOR)
             if elevator_texture is not None:
                 return elevator_texture

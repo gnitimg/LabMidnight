@@ -59,6 +59,28 @@ LEGACY_OBJECT_SYMBOL_ASSET_ALIASES = {
 }
 ELEMENT_STORY = "story_required"
 ELEMENT_PICKUP = "pickup"
+ELEMENT_TRIGGER = "trigger"
+ELEMENT_DECORATION = "decoration"
+VALID_ELEMENT_TYPES = {ELEMENT_STORY, ELEMENT_PICKUP, ELEMENT_TRIGGER, ELEMENT_DECORATION}
+RESOURCE_ROLES = {"", "required", "optional", "decor"}
+FIXED_OBJECT_STYLES = {
+    "blackboard": {
+        "width": 0.08,
+        "height": 2.0,
+        "placement_height": 1.5,
+    },
+    "elevator": {
+        "height": 3.0,
+        "placement_height": 0.0,
+    },
+}
+WALL_FACING_OBJECT_IDS = {"blackboard", "elevator"}
+WALL_FACING_ROTATIONS = (
+    (0, -1, 0),
+    (1, 0, 270),
+    (0, 1, 180),
+    (-1, 0, 90),
+)
 
 
 def floor_layout_path(floor: int) -> Path:
@@ -138,6 +160,10 @@ class MapObject:
     remove_on_pickup: bool = False
     random_drop: bool = False
     drop_count: int = 1
+    is_trigger: bool = False
+    trigger_id: str = ""
+    trigger_once: bool = True
+    resource_role: str = ""
 
     def footprint_size(self) -> tuple[float, float]:
         normalized = self.rotation % 360
@@ -206,7 +232,7 @@ def object_templates() -> dict[str, MapObject]:
 
 
 def _object_from_spec(spec: ObjectSpec, rotation: int = 0) -> MapObject:
-    return MapObject(
+    return _object_with_fixed_style(MapObject(
         object_id=spec.object_id,
         name=spec.name,
         prompt=spec.prompt,
@@ -218,7 +244,7 @@ def _object_from_spec(spec: ObjectSpec, rotation: int = 0) -> MapObject:
         placement_height=spec.placement_height,
         rotation=rotation % 360,
         solid=spec.solid,
-    )
+    ))
 
 
 def _template_with_asset(template: MapObject, specs: dict[str, ObjectSpec], rotation: int = 0) -> MapObject:
@@ -227,13 +253,13 @@ def _template_with_asset(template: MapObject, specs: dict[str, ObjectSpec], rota
         alias = LEGACY_OBJECT_ASSET_ALIASES.get(template.object_id)
         spec = specs.get(alias) if alias is not None else None
     if spec is None:
-        return replace(
+        return _object_with_fixed_style(replace(
             template,
             asset_id=template.asset_id or template.object_id,
             rotation=rotation % 360,
             solid=_legacy_template_solid(template),
-        )
-    return replace(
+        ))
+    return _object_with_fixed_style(replace(
         template,
         asset_id=spec.object_id,
         length=spec.length,
@@ -242,7 +268,7 @@ def _template_with_asset(template: MapObject, specs: dict[str, ObjectSpec], rota
         placement_height=spec.placement_height,
         rotation=rotation % 360,
         solid=spec.solid,
-    )
+    ))
 
 
 def _legacy_template_solid(template: MapObject) -> bool:
@@ -266,12 +292,24 @@ def _object_with_metadata_overrides(obj: MapObject, raw: dict) -> MapObject:
     if placement_height is not None:
         updates["placement_height"] = placement_height
     element_type = str(raw.get("element_type", obj.element_type))
-    if element_type in {ELEMENT_STORY, ELEMENT_PICKUP}:
+    if element_type in VALID_ELEMENT_TYPES:
         updates["element_type"] = element_type
     for key in ("pickup_item", "pickup_flag", "interaction_message", "required_item", "required_flag", "failure_message"):
         value = str(raw.get(key, "")).strip()
         if value:
             updates[key] = value
+    trigger_id = str(raw.get("trigger_id", "")).strip()
+    if trigger_id:
+        updates["trigger_id"] = trigger_id
+    if "is_trigger" in raw:
+        updates["is_trigger"] = _bool_value(raw.get("is_trigger"))
+    elif trigger_id or element_type == ELEMENT_TRIGGER:
+        updates["is_trigger"] = True
+    if "trigger_once" in raw:
+        updates["trigger_once"] = _bool_value(raw.get("trigger_once"))
+    resource_role = str(raw.get("resource_role", "")).strip().lower()
+    if resource_role in RESOURCE_ROLES:
+        updates["resource_role"] = resource_role
     prompt = str(raw.get("interaction_prompt", "")).strip()
     if prompt:
         updates["prompt"] = prompt
@@ -285,6 +323,13 @@ def _object_with_metadata_overrides(obj: MapObject, raw: dict) -> MapObject:
         except (TypeError, ValueError):
             pass
     return replace(obj, **updates) if updates else obj
+
+
+def _object_with_fixed_style(obj: MapObject) -> MapObject:
+    style = FIXED_OBJECT_STYLES.get(obj.object_id)
+    if style is None:
+        return obj
+    return replace(obj, **style)
 
 
 def _optional_positive_float(payload: dict, key: str) -> float | None:
@@ -337,6 +382,7 @@ class GameMap:
             self._build_layout()
         self._hydrate_existing_objects()
         self._load_object_metadata()
+        self._normalize_wall_facing_objects()
         self._apply_random_pickup_drops()
         self._index_door_groups()
 
@@ -517,6 +563,41 @@ class GameMap:
                 obj = _object_from_spec(self.object_specs[object_id], rotation)
                 self.objects[(x, y)] = _object_with_metadata_overrides(obj, raw)
 
+    def _normalize_wall_facing_objects(self) -> None:
+        for anchor, obj in list(self.objects.items()):
+            normalized = obj
+            if normalized.object_id in WALL_FACING_OBJECT_IDS:
+                rotation = self._room_facing_rotation(anchor, normalized)
+                if rotation is not None:
+                    normalized = replace(normalized, rotation=rotation)
+            self.objects[anchor] = normalized
+
+    def _room_facing_rotation(self, anchor: tuple[int, int], obj: MapObject) -> int | None:
+        occupied = self._object_occupied_cells(anchor, obj)
+        if not occupied:
+            return None
+
+        scores: dict[int, int] = {}
+        for dx, dy, rotation in WALL_FACING_ROTATIONS:
+            score = 0
+            for x, y in occupied:
+                adjacent = (x + dx, y + dy)
+                if adjacent in occupied:
+                    continue
+                if self.tile_at(*adjacent) in WALL_TILES:
+                    score += 1
+            scores[rotation] = score
+
+        best_score = max(scores.values(), default=0)
+        if best_score <= 0:
+            return None
+
+        current = obj.rotation % 360
+        best_rotations = {rotation for rotation, score in scores.items() if score == best_score}
+        if current in best_rotations:
+            return current
+        return min(best_rotations, key=lambda rotation: ((rotation - current) % 360, rotation))
+
     def _apply_random_pickup_drops(self) -> None:
         candidates_by_item: dict[str, list[tuple[tuple[int, int], MapObject]]] = {}
         for anchor, obj in self.objects.items():
@@ -627,8 +708,14 @@ class GameMap:
         east_open = self.tile_at(x + 1, y) not in WALL_TILES
         north_open = self.tile_at(x, y - 1) not in WALL_TILES
         south_open = self.tile_at(x, y + 1) not in WALL_TILES
-        if north_open and south_open and not (west_open and east_open):
+        west_wall = self.tile_at(x - 1, y) in WALL_TILES
+        east_wall = self.tile_at(x + 1, y) in WALL_TILES
+        north_wall = self.tile_at(x, y - 1) in WALL_TILES
+        south_wall = self.tile_at(x, y + 1) in WALL_TILES
+        if (west_wall and east_wall and (north_open or south_open)) or (north_open and south_open and not (west_open and east_open)):
             return "horizontal"
+        if north_wall and south_wall and (west_open or east_open):
+            return "vertical"
         return "vertical"
 
     def entry_spawn_pose(self, entry_kind: str, source_cell: tuple[int, int] | None = None) -> tuple[float, float, float] | None:

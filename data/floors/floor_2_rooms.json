@@ -48,6 +48,42 @@
       "h": 22,
       "name": "Room 5",
       "number": "5"
+    },
+    {
+      "room_id": 8,
+      "x": 140,
+      "y": 1,
+      "w": 8,
+      "h": 20,
+      "name": "Room 8",
+      "number": "8"
+    },
+    {
+      "room_id": 9,
+      "x": 132,
+      "y": 0,
+      "w": 10,
+      "h": 20,
+      "name": "Room 9",
+      "number": "9"
+    },
+    {
+      "room_id": 10,
+      "x": 78,
+      "y": 8,
+      "w": 72,
+      "h": 14,
+      "name": "Room 10",
+      "number": "10"
+    },
+    {
+      "room_id": 16,
+      "x": 80,
+      "y": 21,
+      "w": 72,
+      "h": 10,
+      "name": "Room 16",
+      "number": "16"
     }
   ],
   "overrides": [
@@ -9969,16 +10005,6 @@
   ],
   "objects": [
     {
-      "x": 2,
-      "y": 2,
-      "object_id": "9",
-      "rotation": 270,
-      "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0
-    },
-    {
       "x": 21,
       "y": 2,
       "object_id": "blackboard",
@@ -10546,16 +10572,6 @@
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 44,
-      "y": 24,
-      "object_id": "9",
-      "rotation": 270,
-      "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
       "placement_height": 0.0
     },
     {
@@ -12119,23 +12135,23 @@
       "placement_height": 2.0
     },
     {
-      "x": 117,
-      "y": 2,
-      "object_id": "9",
-      "rotation": 270,
-      "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
+      "x": 126,
+      "y": 40,
+      "object_id": "elevator",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 0.08,
+      "height": 3.0,
       "placement_height": 0.0
     },
     {
-      "x": 140,
-      "y": 2,
-      "object_id": "9",
+      "x": 141,
+      "y": 1,
+      "object_id": "elevator",
       "rotation": 0,
-      "length": 4.0,
-      "width": 1.0,
-      "height": 1.0,
+      "length": 6.0,
+      "width": 0.08,
+      "height": 5.0,
       "placement_height": 0.0
     }
   ]

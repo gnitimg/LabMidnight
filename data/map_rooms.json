@@ -88,7 +88,7 @@
     {
       "room_id": 10,
       "x": 78,
-      "y": 6,
+      "y": 8,
       "w": 72,
       "h": 14,
       "name": "Room 10",
@@ -32788,31 +32788,26 @@
     {
       "x": 138,
       "y": 2,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 138,
       "y": 3,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 138,
       "y": 4,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 138,
       "y": 5,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 138,
       "y": 6,
-      "symbol": "."
-    },
-    {
-      "x": 138,
-      "y": 7,
       "symbol": "#"
     },
     {
@@ -33028,31 +33023,26 @@
     {
       "x": 139,
       "y": 2,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 139,
       "y": 3,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 139,
       "y": 4,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 139,
       "y": 5,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 139,
       "y": 6,
-      "symbol": "."
-    },
-    {
-      "x": 139,
-      "y": 7,
       "symbol": "#"
     },
     {
@@ -33268,32 +33258,27 @@
     {
       "x": 140,
       "y": 2,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 140,
       "y": 3,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 140,
       "y": 4,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 140,
       "y": 5,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 140,
       "y": 6,
-      "symbol": "."
-    },
-    {
-      "x": 140,
-      "y": 7,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 140,
@@ -33493,7 +33478,7 @@
     {
       "x": 141,
       "y": 1,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 141,
@@ -33523,7 +33508,7 @@
     {
       "x": 141,
       "y": 7,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 141,
@@ -33723,7 +33708,7 @@
     {
       "x": 142,
       "y": 1,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 142,
@@ -33963,7 +33948,7 @@
     {
       "x": 143,
       "y": 1,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 143,
@@ -34203,7 +34188,7 @@
     {
       "x": 144,
       "y": 1,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 144,
@@ -34233,7 +34218,7 @@
     {
       "x": 144,
       "y": 7,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 144,
@@ -34443,7 +34428,7 @@
     {
       "x": 145,
       "y": 1,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 145,
@@ -34473,7 +34458,7 @@
     {
       "x": 145,
       "y": 7,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 145,
@@ -34683,32 +34668,32 @@
     {
       "x": 146,
       "y": 1,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 146,
       "y": 2,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 146,
       "y": 3,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 146,
       "y": 4,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 146,
       "y": 5,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 146,
       "y": 6,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 146,
@@ -36410,12 +36395,12 @@
     {
       "x": 21,
       "y": 9,
-      "object_id": "2",
+      "object_id": "blackboard",
       "rotation": 0,
       "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0
+      "width": 0.08,
+      "height": 2.0,
+      "placement_height": 1.5
     },
     {
       "x": 21,
@@ -36425,7 +36410,12 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "security_desk",
+      "trigger_once": true,
+      "resource_role": "required"
     },
     {
       "x": 24,
@@ -36645,7 +36635,12 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "fuse_cabinet",
+      "trigger_once": true,
+      "resource_role": "required"
     },
     {
       "x": 37,
@@ -36845,7 +36840,12 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "power_box",
+      "trigger_once": true,
+      "resource_role": "required"
     },
     {
       "x": 50,
@@ -37015,7 +37015,12 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "server_terminal",
+      "trigger_once": true,
+      "resource_role": "required"
     },
     {
       "x": 58,
@@ -37189,7 +37194,7 @@
     },
     {
       "x": 70,
-      "y": 2,
+      "y": 45,
       "object_id": "blackboard",
       "rotation": 0,
       "length": 8.0,
@@ -37198,14 +37203,20 @@
       "placement_height": 1.5
     },
     {
-      "x": 70,
-      "y": 45,
+      "x": 71,
+      "y": 2,
       "object_id": "blackboard",
       "rotation": 0,
-      "length": 8.0,
+      "length": 6.0,
       "width": 0.08,
       "height": 2.0,
-      "placement_height": 1.5
+      "placement_height": 1.5,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "blackboard_clue",
+      "trigger_once": true,
+      "resource_role": "required",
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 71,
@@ -37315,7 +37326,13 @@
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "lab_desk_supplies",
+      "trigger_once": true,
+      "resource_role": "required",
+      "interaction_prompt": "? Space ?????"
     },
     {
       "x": 75,
@@ -37415,7 +37432,13 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 101,
@@ -37425,7 +37448,13 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 102,
@@ -37435,7 +37464,13 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 106,
@@ -37445,7 +37480,13 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 106,
@@ -37455,7 +37496,13 @@
       "length": 1.0,
       "width": 1.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 120,
@@ -37465,7 +37512,13 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 120,
@@ -37475,7 +37528,13 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 122,
@@ -37485,16 +37544,22 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
       "x": 126,
       "y": 40,
-      "object_id": "9",
+      "object_id": "elevator",
       "rotation": 0,
       "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
+      "width": 0.08,
+      "height": 3.0,
       "placement_height": 0.0
     },
     {
@@ -37505,26 +37570,22 @@
       "length": 2.0,
       "width": 2.0,
       "height": 1.0,
-      "placement_height": 0.0
+      "placement_height": 0.0,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "interaction_prompt": "? Space ????"
     },
     {
-      "x": 138,
-      "y": 8,
-      "object_id": "9",
+      "x": 141,
+      "y": 1,
+      "object_id": "elevator",
       "rotation": 0,
-      "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0
-    },
-    {
-      "x": 140,
-      "y": 2,
-      "object_id": "9",
-      "rotation": 0,
-      "length": 4.0,
-      "width": 1.0,
-      "height": 1.0,
+      "length": 6.0,
+      "width": 0.08,
+      "height": 5.0,
       "placement_height": 0.0
     }
   ]

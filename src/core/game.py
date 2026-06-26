@@ -83,8 +83,25 @@ class Game:
         self.low_sanity_warned = False
 
     def _bind_floor_systems(self) -> None:
+        self._sync_current_floor_power_flag()
         self.renderer = RaycastingRenderer(self.screen, self.game_map)
         self.interaction = InteractionSystem(self.game_map)
+
+    def floor_power_flag(self, floor: int | None = None) -> str:
+        target_floor = self.current_floor if floor is None else floor
+        return f"power_restored_floor_{target_floor}"
+
+    def is_floor_power_restored(self, floor: int | None = None) -> bool:
+        return bool(self.player.flags.get(self.floor_power_flag(floor), False))
+
+    def restore_current_floor_power(self) -> None:
+        self.player.flags[self.floor_power_flag()] = True
+        self._sync_current_floor_power_flag()
+
+    def _sync_current_floor_power_flag(self) -> None:
+        if not hasattr(self, "player"):
+            return
+        self.player.flags["power_restored"] = self.is_floor_power_restored(self.current_floor)
 
     def run(self) -> None:
         while self.running:
@@ -399,7 +416,7 @@ class Game:
             player.sanity = max(0.0, player.sanity - 5.0)
             self.audio.play_loop("lecture_loop", volume=0.58)
             self.set_message("教室里没有人，但讲课声确实在这里。", 4.0)
-        if region == "exit" and player.flags.get("power_restored", False) and player.has_item("access_card"):
+        if region == "exit" and self.is_floor_power_restored() and player.has_item("access_card"):
             self.audio.play("knock", volume=0.5, cooldown=5.0)
 
     def set_message(self, text: str, duration: float = 3.0) -> None:
