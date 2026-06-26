@@ -175,24 +175,28 @@ class UI:
         self.draw_text(surface, "R 重新开始", (SCREEN_WIDTH // 2, 300), 25, COLOR_TEXT, center=True)
         self.draw_text(surface, "Q 回到主菜单", (SCREEN_WIDTH // 2, 342), 25, COLOR_TEXT, center=True)
 
-    def draw_floor_confirm(self, surface: pygame.Surface, selected: int) -> None:
+    def draw_floor_confirm(self, surface: pygame.Surface, title: str, options: list[int], selected: int) -> None:
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 235))
         surface.blit(overlay, (0, 0))
-        panel = pygame.Rect(SCREEN_WIDTH // 2 - 220, SCREEN_HEIGHT // 2 - 116, 440, 232)
+        panel = pygame.Rect(SCREEN_WIDTH // 2 - 240, SCREEN_HEIGHT // 2 - 116, 480, 232)
         pygame.draw.rect(surface, COLOR_PANEL, panel, border_radius=8)
         pygame.draw.rect(surface, COLOR_PANEL_EDGE, panel, 1, border_radius=8)
-        self.draw_text(surface, "下了楼，就回不来了哦", (SCREEN_WIDTH // 2, panel.y + 58), 30, COLOR_WARNING, bold=True, center=True)
+        self.draw_text(surface, title, (SCREEN_WIDTH // 2, panel.y + 44), 30, COLOR_WARNING, bold=True, center=True)
+        self.draw_text(surface, "请选择目的楼层", (SCREEN_WIDTH // 2, panel.y + 78), 21, COLOR_TEXT, center=True)
 
-        options = [("走吧", panel.x + 72), ("等等", panel.x + 250)]
-        for index, (label, x) in enumerate(options):
-            rect = pygame.Rect(x, panel.y + 128, 118, 42)
+        button_width = 80 if len(options) >= 4 else 100 if len(options) == 3 else 118
+        button_gap = 12 if len(options) >= 3 else 18
+        total_width = button_width * len(options) + button_gap * (len(options) - 1)
+        start_x = panel.centerx - total_width // 2
+        for index, floor in enumerate(options):
+            rect = pygame.Rect(start_x + index * (button_width + button_gap), panel.y + 128, button_width, 42)
             fill = (48, 58, 58) if index == selected else (22, 28, 29)
             pygame.draw.rect(surface, fill, rect, border_radius=5)
             pygame.draw.rect(surface, COLOR_WARNING if index == selected else COLOR_PANEL_EDGE, rect, 1, border_radius=5)
-            self.draw_text(surface, label, rect.center, 24, COLOR_TEXT if index != selected else COLOR_WARNING, bold=index == selected, center=True)
+            self.draw_text(surface, str(floor), rect.center, 24, COLOR_TEXT if index != selected else COLOR_WARNING, bold=index == selected, center=True)
 
-        self.draw_text(surface, "A/D 或方向键选择，Enter 确认", (SCREEN_WIDTH // 2, panel.bottom - 28), 18, COLOR_MUTED, center=True)
+        self.draw_text(surface, "A/D 或方向键选择，数字键直选，Enter 确认", (SCREEN_WIDTH // 2, panel.bottom - 28), 18, COLOR_MUTED, center=True)
 
     def draw_inventory(self, surface: pygame.Surface, player) -> None:
         self._overlay(surface, 195)

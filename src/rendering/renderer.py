@@ -11,7 +11,7 @@ try:
 except ImportError:  # pragma: no cover - fallback path for minimal installs.
     np = None
 
-from src.resources.asset_manager import TEXTURE_CEILING, TEXTURE_FLOOR, TextureStore
+from src.resources.asset_manager import TEXTURE_CEILING, TEXTURE_ELEVATOR, TEXTURE_FLOOR, TextureStore
 from src.settings import (
     CAMERA_HEIGHT_UNITS,
     CEILING_HEIGHT_UNITS,
@@ -271,7 +271,7 @@ class RaycastingRenderer:
         power_restored = player.flags.get("power_restored", False)
         visible_distance = 9.0 if power_restored else 6.5
         if player.flashlight_on and player.flashlight_power > 0 and player.has_item("flashlight"):
-            visible_distance = 22.0 if power_restored else 18.0
+            visible_distance = 30.0 if power_restored else 26.0
 
         base_strength = 0.34 if power_restored else 0.26
         falloff = np.clip(1.0 - row_distance / visible_distance, 0.0, 1.0)
@@ -280,7 +280,7 @@ class RaycastingRenderer:
         if player.flashlight_on and player.flashlight_power > 0 and player.has_item("flashlight"):
             beam_profile = np.clip(1.0 - np.abs(xs - sample_width / 2) / (sample_width * 0.34), 0.0, 1.0) ** 2
             beam_distance = np.clip(1.0 - row_distance / visible_distance, 0.0, 1.0) ** 0.7
-            light = row_light[:, None] + 0.58 * beam_distance[:, None] * beam_profile[None, :]
+            light = row_light[:, None] + 0.14 * beam_distance[:, None] * beam_profile[None, :]
         else:
             light = np.repeat(row_light[:, None], sample_width, axis=1)
 
@@ -361,7 +361,7 @@ class RaycastingRenderer:
         power_restored = player.flags.get("power_restored", False)
         visible_distance = 9.0 if power_restored else 6.5
         if player.flashlight_on and player.flashlight_power > 0 and player.has_item("flashlight"):
-            visible_distance = 22.0 if power_restored else 18.0
+            visible_distance = 30.0 if power_restored else 26.0
 
         overlay_height = target_height
         overlay = pygame.Surface((SCREEN_WIDTH, overlay_height), pygame.SRCALPHA)
@@ -495,6 +495,30 @@ class RaycastingRenderer:
         wall_offset = (hit_y - math.floor(hit_y)) % 1.0
         return abs(distance), plane_x, hit_y, 0, max(0.0, min(0.999, wall_offset)), False
 
+    def _cut_flashlight_beam(self, overlay: pygame.Surface, player, elapsed: float, darkness: int) -> None:
+        if darkness <= 0 or not player.flashlight_on or player.flashlight_power <= 0 or not player.has_item("flashlight"):
+            return
+
+        flicker = 1.0
+        if player.flashlight_power < 20:
+            flicker = 0.72 + 0.28 * abs(math.sin(elapsed * 18.0))
+
+        strength = max(0.28, min(1.0, player.flashlight_power / 100.0)) * flicker
+        cutout = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        cx, cy = HALF_WIDTH, HALF_HEIGHT
+
+        core = int(darkness * 0.55 * strength)
+        for layer in range(32, 0, -1):
+            t = layer / 32.0
+            rx = int(48 + 265 * t)
+            ry = int(34 + 176 * t)
+            alpha = int(core * (1.0 - t) ** 1.8)
+            if alpha <= 0:
+                continue
+            pygame.draw.ellipse(cutout, (0, 0, 0, alpha), pygame.Rect(cx - rx, cy - ry, rx * 2, ry * 2))
+
+        overlay.blit(cutout, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+
     def _door_visual_span(self, min_cell: int, max_cell: int) -> tuple[float, float]:
         total_span = max(1.0, max_cell - min_cell + 1.0)
         visual_span = min(total_span, max(0.18, CEILING_HEIGHT_UNITS * DOOR_VISUAL_ASPECT))
@@ -516,13 +540,7 @@ class RaycastingRenderer:
                 continue
 
             thin_panel = self._object_is_thin_panel(obj, x0, y0, x1, y1)
-            face_data = [
-                ("front", (0.0, 1.0), (x1, y1), (x0, y1), 0.92),
-                ("back", (0.0, -1.0), (x0, y0), (x1, y0), 0.70),
-                ("left", (-1.0, 0.0), (x0, y1), (x0, y0), 0.78),
-                ("right", (1.0, 0.0), (x1, y0), (x1, y1), 0.86),
-            ]
-            for face, normal, p0, p1, side_light in face_data:
+            for face, normal, p0, p1, side_light in self._object_face_data(anchor, obj):
                 face_span = math.hypot(p1[0] - p0[0], p1[1] - p0[1])
                 if thin_panel and face_span <= 0.15:
                     continue
@@ -541,18 +559,18 @@ class RaycastingRenderer:
                         p1[0] + normal[0] * THIN_PANEL_RENDER_OFFSET,
                         p1[1] + normal[1] * THIN_PANEL_RENDER_OFFSET,
                     )
-                texture = self._object_face_texture(asset_id, self._rotated_face(face, obj.rotation))
+                texture = self._object_face_texture(asset_id, face)
                 distance_key = (center_x - player.x) ** 2 + (center_y - player.y) ** 2
                 occlusion_slack = THIN_PANEL_OCCLUSION_SLACK if thin_panel else DEFAULT_OCCLUSION_SLACK
                 near_clip = THIN_PANEL_NEAR_CLIP if thin_panel else DOOR_PANEL_NEAR_CLIP
-                stable_vertical = thin_panel
+                stable_vertical = False
                 drawables.append((distance_key, "panel", (texture, p0, p1, bottom_z, object_top_z, side_light, occlusion_slack, near_clip, stable_vertical)))
 
             if not thin_panel:
                 top_texture = self._object_face_texture(asset_id, "top")
-                top_points = [(x0, y0, object_top_z), (x1, y0, object_top_z), (x1, y1, object_top_z), (x0, y1, object_top_z)]
-                center_x = (x0 + x1) * 0.5
-                center_y = (y0 + y1) * 0.5
+                top_points = [(x, y, object_top_z) for x, y in self._object_top_points(anchor, obj)]
+                center_x = sum(point[0] for point in top_points) / len(top_points)
+                center_y = sum(point[1] for point in top_points) / len(top_points)
                 drawables.append(((center_x - player.x) ** 2 + (center_y - player.y) ** 2, "top", (top_texture, top_points, 0.82)))
 
         for _, kind, payload in sorted(drawables, key=lambda item: item[0], reverse=True):
@@ -589,10 +607,77 @@ class RaycastingRenderer:
         long_side = max(footprint_width, footprint_depth)
         return obj.placement_height > 0.0 and thin_side <= 0.15 and long_side >= 1.0
 
+    def _object_face_data(
+        self,
+        anchor: tuple[int, int],
+        obj,
+    ) -> list[tuple[str, tuple[float, float], tuple[float, float], tuple[float, float], float]]:
+        length = max(0.05, obj.length)
+        width = max(0.05, obj.width)
+        local_faces = [
+            ("front", (0.0, 1.0), (length, width), (0.0, width), 0.92),
+            ("back", (0.0, -1.0), (0.0, 0.0), (length, 0.0), 0.70),
+            ("left", (-1.0, 0.0), (0.0, width), (0.0, 0.0), 0.78),
+            ("right", (1.0, 0.0), (length, 0.0), (length, width), 0.86),
+        ]
+        return [
+            (
+                face,
+                self._object_local_vector_to_world(normal[0], normal[1], obj.rotation),
+                self._object_local_point_to_world(anchor, length, width, p0[0], p0[1], obj.rotation),
+                self._object_local_point_to_world(anchor, length, width, p1[0], p1[1], obj.rotation),
+                side_light,
+            )
+            for face, normal, p0, p1, side_light in local_faces
+        ]
+
+    def _object_top_points(self, anchor: tuple[int, int], obj) -> list[tuple[float, float]]:
+        length = max(0.05, obj.length)
+        width = max(0.05, obj.width)
+        return [
+            self._object_local_point_to_world(anchor, length, width, 0.0, 0.0, obj.rotation),
+            self._object_local_point_to_world(anchor, length, width, length, 0.0, obj.rotation),
+            self._object_local_point_to_world(anchor, length, width, length, width, obj.rotation),
+            self._object_local_point_to_world(anchor, length, width, 0.0, width, obj.rotation),
+        ]
+
+    def _object_local_point_to_world(
+        self,
+        anchor: tuple[int, int],
+        length: float,
+        width: float,
+        local_x: float,
+        local_y: float,
+        rotation: int,
+    ) -> tuple[float, float]:
+        x, y = anchor
+        quarter_turn = (rotation // 90) % 4
+        if quarter_turn == 1:
+            return x + local_y, y + length - local_x
+        if quarter_turn == 2:
+            return x + length - local_x, y + width - local_y
+        if quarter_turn == 3:
+            return x + width - local_y, y + local_x
+        return x + local_x, y + local_y
+
+    def _object_local_vector_to_world(self, x: float, y: float, rotation: int) -> tuple[float, float]:
+        quarter_turn = (rotation // 90) % 4
+        if quarter_turn == 1:
+            return y, -x
+        if quarter_turn == 2:
+            return -x, -y
+        if quarter_turn == 3:
+            return -y, x
+        return x, y
+
     def _object_face_texture(self, object_id: str, face: str) -> pygame.Surface:
         texture = self.textures.for_object_face(object_id, face)
         if texture is not None:
             return texture
+        if object_id == "elevator":
+            elevator_texture = self.textures.get(TEXTURE_ELEVATOR)
+            if elevator_texture is not None:
+                return elevator_texture
         key = (object_id, face)
         cached = self._fallback_object_texture_cache.get(key)
         if cached is not None:
@@ -604,13 +689,6 @@ class RaycastingRenderer:
         pygame.draw.rect(surface, tuple(max(0, channel - 28) for channel in color), surface.get_rect(), 2)
         self._fallback_object_texture_cache[key] = surface
         return surface
-
-    def _rotated_face(self, face: str, rotation: int) -> str:
-        order = ("front", "right", "back", "left")
-        if face not in order:
-            return face
-        steps = (rotation // 90) % 4
-        return order[(order.index(face) - steps) % 4]
 
     def _draw_world_top(
         self,
@@ -1049,12 +1127,12 @@ class RaycastingRenderer:
         power_restored = player.flags.get("power_restored", False)
         visible_distance = 9.0 if power_restored else 6.5
         if player.flashlight_on and player.flashlight_power > 0 and player.has_item("flashlight"):
-            visible_distance = 22.0 if power_restored else 18.0
+            visible_distance = 30.0 if power_restored else 26.0
 
         distance_shade = max(0.10, 1.0 - distance / visible_distance)
         center_offset = abs((ray_angle - player.angle + math.pi) % math.tau - math.pi)
         beam = max(0.0, 1.0 - center_offset / (FOV * 0.42))
-        beam_boost = 0.55 * beam * beam if player.flashlight_on and player.flashlight_power > 0 else 0.0
+        beam_boost = 0.08 * beam * beam if player.flashlight_on and player.flashlight_power > 0 and player.has_item("flashlight") else 0.0
 
         flicker = 1.0
         if player.flashlight_on and 0 < player.flashlight_power < 20:
@@ -1069,10 +1147,9 @@ class RaycastingRenderer:
             shade *= 0.35
         return shade
 
-    def draw_dark_overlay(self, player) -> None:
-        darkness = 0
-        if not player.flashlight_on or player.flashlight_power <= 0:
-            darkness += 55
+    def draw_dark_overlay(self, player, elapsed: float = 0.0) -> None:
+        flashlight_active = player.flashlight_on and player.flashlight_power > 0 and player.has_item("flashlight")
+        darkness = 38 if flashlight_active else 55
         if player.sanity < 45:
             darkness += int((45 - player.sanity) * 2.2)
         darkness = max(0, min(170, darkness))
@@ -1080,4 +1157,5 @@ class RaycastingRenderer:
             return
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((*COLOR_BLACK, darkness))
+        self._cut_flashlight_beam(overlay, player, elapsed, darkness)
         self.screen.blit(overlay, (0, 0))

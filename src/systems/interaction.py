@@ -7,6 +7,7 @@ import math
 from src.settings import (
     BATTERY_RESTORE,
     BUILDING_BOTTOM_FLOOR,
+    BUILDING_TOP_FLOOR,
     DOOR_TILES,
     INTERACT_DISTANCE,
     TILE_CLASSROOM_DOOR,
@@ -14,6 +15,7 @@ from src.settings import (
     TILE_GUARD_DOOR,
     TILE_LAB_DOOR,
     TILE_POWER_DOOR,
+    WALL_TILES,
 )
 
 
@@ -24,17 +26,102 @@ class InteractionSystem:
     def focused_target(self, player):
         cos_a = math.cos(player.angle)
         sin_a = math.sin(player.angle)
-        distance = 0.25
-        while distance <= INTERACT_DISTANCE:
-            cell = (int(player.x + cos_a * distance), int(player.y + sin_a * distance))
-            obj = self.game_map.object_at(*cell)
-            if obj is not None:
-                return ("object", cell, obj)
-            tile = self.game_map.tile_at(*cell)
-            if tile in DOOR_TILES and (not self.game_map.is_open_door(*cell) or tile == TILE_EXIT_DOOR):
-                return ("door", cell, tile)
-            distance += 0.08
+        object_hit = self._pointed_object(player.x, player.y, cos_a, sin_a, INTERACT_DISTANCE)
+        tile_hit = self._pointed_blocking_tile(player.x, player.y, cos_a, sin_a, INTERACT_DISTANCE)
+
+        if tile_hit is not None:
+            kind, distance, cell, tile = tile_hit
+            if object_hit is None or distance <= object_hit[0] + 0.02:
+                if kind == "door":
+                    return ("door", cell, tile)
+                return None
+
+        if object_hit is not None:
+            _distance, anchor, obj = object_hit
+            return ("object", anchor, obj)
         return None
+
+    def _pointed_object(self, x: float, y: float, dx: float, dy: float, max_distance: float):
+        best = None
+        for anchor, obj in self.game_map.objects.items():
+            if anchor in self.game_map.picked_objects or not self._object_has_interaction(obj):
+                continue
+            min_x, min_y, max_x, max_y = self.game_map.object_bounds(anchor, obj)
+            distance = self._ray_box_distance(x, y, dx, dy, min_x, min_y, max_x, max_y)
+            if distance is None or distance > max_distance:
+                continue
+            if best is None or distance < best[0]:
+                best = (distance, anchor, obj)
+        return best
+
+    def _pointed_blocking_tile(self, x: float, y: float, dx: float, dy: float, max_distance: float):
+        distance = 0.05
+        seen: set[tuple[int, int]] = set()
+        while distance <= max_distance:
+            cell = (int(x + dx * distance), int(y + dy * distance))
+            if cell in seen:
+                distance += 0.03
+                continue
+            seen.add(cell)
+            tile = self.game_map.tile_at(*cell)
+            if tile in DOOR_TILES:
+                if not self.game_map.is_open_door(*cell) or tile == TILE_EXIT_DOOR:
+                    return ("door", distance, cell, tile)
+            elif tile in WALL_TILES:
+                return ("wall", distance, cell, tile)
+            distance += 0.03
+        return None
+
+    def _ray_box_distance(
+        self,
+        origin_x: float,
+        origin_y: float,
+        dir_x: float,
+        dir_y: float,
+        min_x: float,
+        min_y: float,
+        max_x: float,
+        max_y: float,
+    ) -> float | None:
+        padding = 0.025
+        min_x -= padding
+        min_y -= padding
+        max_x += padding
+        max_y += padding
+        t_min = 0.0
+        t_max = float("inf")
+        for origin, direction, lower, upper in (
+            (origin_x, dir_x, min_x, max_x),
+            (origin_y, dir_y, min_y, max_y),
+        ):
+            if abs(direction) <= 1e-8:
+                if origin < lower or origin > upper:
+                    return None
+                continue
+            t1 = (lower - origin) / direction
+            t2 = (upper - origin) / direction
+            near = min(t1, t2)
+            far = max(t1, t2)
+            t_min = max(t_min, near)
+            t_max = min(t_max, far)
+            if t_max < t_min:
+                return None
+        if t_max < 0:
+            return None
+        return max(0.0, t_min)
+
+    def _object_has_interaction(self, obj) -> bool:
+        return bool(
+            obj.prompt
+            or obj.description
+            or obj.pickup_item
+            or obj.pickup_flag
+            or obj.interaction_message
+            or obj.required_item
+            or obj.required_flag
+            or obj.failure_message
+            or obj.remove_on_pickup
+        )
 
     def prompt_for(self, player) -> str:
         target = self.focused_target(player)
@@ -42,6 +129,8 @@ class InteractionSystem:
             return ""
         kind, cell, payload = target
         if kind == "object":
+            if payload.object_id in {"elevator", "exit_panel"}:
+                return "按 Space 使用东11C货梯"
             return payload.prompt
         tile = payload
         role = self.game_map.door_role_at(*cell)
@@ -124,7 +213,7 @@ class InteractionSystem:
                 self.game_map.open_door(x, y)
                 player.flags["safety_exit_opened"] = True
                 game.audio.play("door_open")
-                game.open_floor_exit_prompt()
+                game.open_floor_exit_prompt(cell)
                 return ""
             player.flags["exit_opened"] = True
             player.flags["success_ending"] = True
@@ -276,20 +365,34 @@ class InteractionSystem:
                 return "屏幕显示 LabMidnight.map。你在键盘旁找到一张门禁卡。"
             return "屏幕上显示：玩家位置，四层实验楼。出口状态：等待确认。"
 
-        if obj.object_id == "exit_panel":
-            if game.current_floor > BUILDING_BOTTOM_FLOOR:
-                if not player.has_item("access_card"):
-                    game.audio.play("error")
-                    return "安全出口门禁需要门禁卡。"
-                player.flags["safety_exit_opened"] = True
-                game.audio.play("door_open")
-                game.open_floor_exit_prompt()
-                return ""
-            player.flags["exit_opened"] = True
-            player.flags["success_ending"] = True
-            game.audio.play("door_open")
-            game.enter_success()
-            return "你冲出一层出口，夜风一下子灌进来。"
+        if obj.object_id in {"exit_panel", "elevator"}:
+            return self._interact_transition_panel(game, cell, obj)
 
         game.audio.play("error")
         return obj.description or "这里没有更多线索。"
+
+    def _interact_transition_panel(self, game, cell: tuple[int, int], obj) -> str:
+        player = game.player
+        if obj.object_id == "exit_panel":
+            if game.current_floor > BUILDING_BOTTOM_FLOOR and not player.has_item("access_card"):
+                game.audio.play("error")
+                return "安全出口门禁需要门禁卡。"
+            if game.current_floor == BUILDING_BOTTOM_FLOOR:
+                player.flags["exit_opened"] = True
+                player.flags["success_ending"] = True
+                game.audio.play("door_open")
+                game.enter_success()
+                return "你冲出一层出口，夜风一下子灌进来。"
+            targets = []
+            if game.current_floor > BUILDING_BOTTOM_FLOOR:
+                targets.append(game.current_floor - 1)
+            if game.current_floor < BUILDING_TOP_FLOOR:
+                targets.append(game.current_floor + 1)
+            game.audio.play("door_open")
+            game.open_floor_transition_prompt(targets, "安全出口", entry_kind="exit", source_cell=cell)
+            return ""
+
+        targets = [floor for floor in range(BUILDING_BOTTOM_FLOOR, BUILDING_TOP_FLOOR + 1) if floor != game.current_floor]
+        game.audio.play("door_open")
+        game.open_floor_transition_prompt(targets, "东11C货梯", entry_kind="elevator", source_cell=cell)
+        return ""

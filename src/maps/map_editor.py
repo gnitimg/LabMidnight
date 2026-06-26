@@ -89,7 +89,7 @@ OBJECT_LABELS = {
     "6": "Battery",
     "7": "Power Box",
     "8": "Server Terminal",
-    "9": "Exit Panel",
+    "9": "Elevator",
 }
 
 ELEMENT_STORY = "story_required"

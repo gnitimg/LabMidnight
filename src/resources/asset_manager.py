@@ -30,6 +30,7 @@ TEXTURE_DOOR_LAB = "door_lab"
 TEXTURE_DOOR_CLASSROOM = "door_classroom"
 TEXTURE_DOOR_POWER = "door_power"
 TEXTURE_DOOR_EXIT = "door_exit"
+TEXTURE_ELEVATOR = "elevator"
 
 TILE_TEXTURES = {
     TILE_WALL: TEXTURE_WALL,
@@ -62,6 +63,7 @@ class TextureStore:
             TEXTURE_DOOR_CLASSROOM,
             TEXTURE_DOOR_POWER,
             TEXTURE_DOOR_EXIT,
+            TEXTURE_ELEVATOR,
         }
         for name in names:
             surface = self._load_first_existing(name)

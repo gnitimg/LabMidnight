@@ -55,6 +55,10 @@ class Game:
         self.current_floor = BUILDING_TOP_FLOOR
         self.pending_floor = BUILDING_TOP_FLOOR - 1
         self.floor_choice_selected = 0
+        self.floor_transition_options: list[int] = []
+        self.floor_transition_title = "楼层选择"
+        self.floor_transition_entry_kind = ""
+        self.floor_transition_source_cell: tuple[int, int] | None = None
         self.new_game()
         self.set_mouse_capture(False)
 
@@ -62,6 +66,7 @@ class Game:
         self.current_floor = BUILDING_TOP_FLOOR
         self.game_map = GameMap(self.current_floor)
         start_x, start_y = self.game_map.start_position
+        self._clear_floor_transition()
         initial = load_initial_player_config()
         self.player = Player(
             x=start_x,
@@ -150,13 +155,25 @@ class Game:
                 self.set_state(STATE_MENU)
 
     def _handle_floor_confirm_key(self, key: int) -> None:
-        if key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_a, pygame.K_d, pygame.K_UP, pygame.K_DOWN):
-            self.floor_choice_selected = 1 - self.floor_choice_selected
+        options = self.floor_transition_options
+        if not options:
+            self._clear_floor_transition()
+            self.set_state(STATE_PLAYING)
+            return
+        if key in (pygame.K_LEFT, pygame.K_UP, pygame.K_a, pygame.K_w):
+            self.floor_choice_selected = (self.floor_choice_selected - 1) % len(options)
+        elif key in (pygame.K_RIGHT, pygame.K_DOWN, pygame.K_d, pygame.K_s):
+            self.floor_choice_selected = (self.floor_choice_selected + 1) % len(options)
+        elif key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4):
+            requested_floor = key - pygame.K_0
+            if requested_floor in options:
+                self.floor_choice_selected = options.index(requested_floor)
         elif key in (pygame.K_RETURN, pygame.K_SPACE):
             self._confirm_floor_choice()
         elif key == pygame.K_ESCAPE:
-            self.floor_choice_selected = 1
-            self._confirm_floor_choice()
+            self._clear_floor_transition()
+            self.set_state(STATE_PLAYING)
+            self.set_message("你停在原地。", 2.0)
 
     def _handle_menu_key(self, key: int) -> None:
         if self.show_instructions:
@@ -175,8 +192,11 @@ class Game:
     def _handle_mouse(self, button: int, pos: tuple[int, int]) -> None:
         if self.state == STATE_FLOOR_CONFIRM:
             if button == 1:
-                self.floor_choice_selected = 0 if pos[0] < SCREEN_WIDTH // 2 else 1
-                self._confirm_floor_choice()
+                for index, rect in enumerate(self._floor_confirm_button_rects()):
+                    if rect.collidepoint(pos):
+                        self.floor_choice_selected = index
+                        self._confirm_floor_choice()
+                        break
             return
         if self.state == STATE_PLAYING:
             if button == 1:
@@ -209,6 +229,18 @@ class Game:
         self.state = state
         self.set_mouse_capture(state == STATE_PLAYING)
 
+    def _floor_confirm_button_rects(self) -> list[pygame.Rect]:
+        options = self.floor_transition_options
+        panel = pygame.Rect(SCREEN_WIDTH // 2 - 240, SCREEN_HEIGHT // 2 - 116, 480, 232)
+        if not options:
+            return []
+        button_width = 80 if len(options) >= 4 else 100 if len(options) == 3 else 118
+        button_gap = 12 if len(options) >= 3 else 18
+        total_width = button_width * len(options) + button_gap * (len(options) - 1)
+        start_x = panel.centerx - total_width // 2
+        y = panel.y + 128
+        return [pygame.Rect(start_x + index * (button_width + button_gap), y, button_width, 42) for index in range(len(options))]
+
     def set_mouse_capture(self, enabled: bool) -> None:
         if self.mouse_captured == enabled:
             return
@@ -233,32 +265,75 @@ class Game:
         state = "打开" if self.player.flashlight_on else "关闭"
         self.set_message(f"手电已{state}。", 1.6)
 
-    def open_floor_exit_prompt(self) -> None:
-        self.pending_floor = max(BUILDING_BOTTOM_FLOOR, self.current_floor - 1)
+    def _clear_floor_transition(self) -> None:
+        self.floor_transition_options = []
+        self.floor_transition_entry_kind = ""
+        self.floor_transition_source_cell = None
+
+    def open_floor_exit_prompt(self, source_cell: tuple[int, int] | None = None) -> None:
+        targets: list[int] = []
+        if self.current_floor > BUILDING_BOTTOM_FLOOR:
+            targets.append(self.current_floor - 1)
+        if self.current_floor < BUILDING_TOP_FLOOR:
+            targets.append(self.current_floor + 1)
+        self.open_floor_transition_prompt(targets, "安全出口", entry_kind="exit", source_cell=source_cell)
+
+    def open_floor_transition_prompt(
+        self,
+        target_floors: list[int],
+        title: str,
+        entry_kind: str = "",
+        source_cell: tuple[int, int] | None = None,
+    ) -> None:
+        options = [floor for floor in target_floors if BUILDING_BOTTOM_FLOOR <= floor <= BUILDING_TOP_FLOOR and floor != self.current_floor]
+        if not options:
+            self.set_message("这里没有可去的楼层。", 2.0)
+            self._clear_floor_transition()
+            self.set_state(STATE_PLAYING)
+            return
+        self.floor_transition_options = options
+        self.floor_transition_title = title
+        self.floor_transition_entry_kind = entry_kind
+        self.floor_transition_source_cell = source_cell
         self.floor_choice_selected = 0
         self.set_state(STATE_FLOOR_CONFIRM)
 
     def _confirm_floor_choice(self) -> None:
-        if self.floor_choice_selected == 0:
-            self.descend_floor()
-        else:
-            self.set_state(STATE_PLAYING)
-            self.set_message("你停在安全出口前。", 2.0)
-
-    def descend_floor(self) -> None:
-        if self.current_floor <= BUILDING_BOTTOM_FLOOR:
+        if not self.floor_transition_options:
+            self._clear_floor_transition()
             self.set_state(STATE_PLAYING)
             return
-        self.current_floor = max(BUILDING_BOTTOM_FLOOR, self.pending_floor)
+        if not (0 <= self.floor_choice_selected < len(self.floor_transition_options)):
+            self.floor_choice_selected = 0
+        target_floor = self.floor_transition_options[self.floor_choice_selected]
+        self.change_floor(target_floor, self.floor_transition_entry_kind, self.floor_transition_source_cell)
+
+    def change_floor(self, target_floor: int, entry_kind: str = "", source_cell: tuple[int, int] | None = None) -> None:
+        if target_floor < BUILDING_BOTTOM_FLOOR or target_floor > BUILDING_TOP_FLOOR or target_floor == self.current_floor:
+            self._clear_floor_transition()
+            self.set_state(STATE_PLAYING)
+            return
+        self.current_floor = target_floor
         self.game_map = GameMap(self.current_floor)
-        x, y, angle = self.game_map.exit_spawn_pose()
+        entry_pose = self.game_map.entry_spawn_pose(entry_kind, source_cell) if entry_kind else None
+        if entry_pose is not None:
+            x, y, angle = entry_pose
+        elif self.game_map.has_explicit_start_position:
+            x, y = self.game_map.start_position
+            angle = 0.0
+        else:
+            x, y, angle = self.game_map.exit_spawn_pose()
         self.player.x = x
         self.player.y = y
         self.player.angle = angle
         self.player.pitch_offset = 0.0
         self._bind_floor_systems()
+        self._clear_floor_transition()
         self.set_state(STATE_PLAYING)
-        self.set_message(f"你下到了 {self.current_floor} 层。", 3.0)
+        self.set_message(f"你到了 {self.current_floor} 层。", 3.0)
+
+    def descend_floor(self) -> None:
+        self.change_floor(max(BUILDING_BOTTOM_FLOOR, self.pending_floor), "exit")
 
     def update(self, dt: float) -> None:
         if self.state != STATE_PLAYING:
@@ -351,7 +426,7 @@ class Game:
         elif self.state in (STATE_PLAYING, STATE_PAUSED, STATE_INVENTORY, STATE_FLOOR_CONFIRM):
             elapsed = time.monotonic() - self.started_at
             self.renderer.render(self.player, elapsed)
-            self.renderer.draw_dark_overlay(self.player)
+            self.renderer.draw_dark_overlay(self.player, elapsed)
             prompt = self.interaction.prompt_for(self.player) if self.state == STATE_PLAYING else ""
             self.ui.draw_hud(self.screen, self.player, self.current_message(), prompt, self.current_floor)
             if self.state == STATE_PAUSED:
@@ -359,7 +434,7 @@ class Game:
             elif self.state == STATE_INVENTORY:
                 self.ui.draw_inventory(self.screen, self.player)
             elif self.state == STATE_FLOOR_CONFIRM:
-                self.ui.draw_floor_confirm(self.screen, self.floor_choice_selected)
+                self.ui.draw_floor_confirm(self.screen, self.floor_transition_title, self.floor_transition_options, self.floor_choice_selected)
         elif self.state == STATE_SUCCESS:
             self.ui.draw_ending(self.screen, True)
         elif self.state == STATE_FAILURE:
