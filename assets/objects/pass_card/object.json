@@ -1,0 +1,10 @@
+{
+  "name": "Maintenance Pass",
+  "length": 0.48,
+  "width": 0.32,
+  "height": 0.04,
+  "placement_height": 0.05,
+  "solid": false,
+  "prompt": "Press Space to inspect Maintenance Pass",
+  "description": "Maintenance Pass"
+}

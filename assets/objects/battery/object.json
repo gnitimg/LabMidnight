@@ -1,0 +1,10 @@
+{
+  "name": "Battery",
+  "length": 0.35,
+  "width": 0.18,
+  "height": 0.12,
+  "placement_height": 0.05,
+  "solid": false,
+  "prompt": "Press Space to pick up Battery",
+  "description": "A spare flashlight battery."
+}

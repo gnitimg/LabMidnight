@@ -22,21 +22,31 @@ from src.settings import (
 
 ITEM_NAMES = {
     "flashlight": "手电筒",
+    "stair_key": "楼梯间钥匙",
     "lab_key": "实验室钥匙",
     "note_a": "纸条 A",
     "note_b": "纸条 B",
     "fuse": "保险丝",
+    "plastic_card": "塑料卡片",
+    "old_corridor_note": "旧连廊便签",
+    "maintenance_pass": "旧连廊通行牌",
+    "utility_badge": "废弃工牌",
     "access_card": "门禁卡",
     "map": "实验楼平面图",
     "battery": "电池",
 }
 
 ITEM_DESCRIPTIONS = {
-    "flashlight": "一只旧手电，电量不多，但总比什么都看不见好。",
+    "flashlight": "一只旧手电。电量不多，得省着用。",
+    "stair_key": "能打开楼梯间机械锁。至少能离开四楼。",
     "lab_key": "实验室备用钥匙。",
     "note_a": "第二节课还没有结束。如果你听见点名，不要回答。",
     "note_b": "灯灭之后，配电室的门只认得黑板上的数字。",
-    "fuse": "看起来正好能装进配电室的空槽里。",
+    "fuse": "看起来正好能装进配电箱的空槽里。",
+    "plastic_card": "几张硬塑料片。撬配电箱应该够用。",
+    "old_corridor_note": "一楼登记册里的便签：二楼旧连廊。",
+    "maintenance_pass": "旧连廊检修通行牌，仅限二层西侧安全门。",
+    "utility_badge": "废弃工牌。今晚它比门禁卡有用。",
     "access_card": "卡面上没有姓名，只有一串被刮花的编号。",
     "map": "四层平面图，有几处房间被红笔圈了出来。",
     "battery": "备用电池，已经自动给手电补充了电量。",
@@ -236,6 +246,9 @@ class UI:
         pygame.draw.circle(surface, (244, 224, 132), (668, 338), 22)
         pygame.draw.line(surface, (244, 224, 132), (556, 339), (640, 339), 5)
         self.draw_text(surface, SUCCESS_TITLE, (SCREEN_WIDTH // 2, 64), 36, (36, 46, 42), bold=True, center=True)
+        self.draw_text(surface, "手机亮着：276 条新消息。", (SCREEN_WIDTH // 2, 152), 24, (36, 46, 42), center=True)
+        self.draw_text(surface, "桌边压着一张实验楼地图。", (SCREEN_WIDTH // 2, 188), 22, (70, 82, 78), center=True)
+        self.draw_text(surface, "至少，我已经出来了。不是吗。", (SCREEN_WIDTH // 2, 224), 22, (70, 82, 78), center=True)
         self.draw_text(surface, "按 Enter 回到主菜单，按 R 重新开始", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 44), 20, (70, 82, 78), center=True)
 
     def _draw_failure_scene(self, surface: pygame.Surface) -> None:

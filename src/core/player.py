@@ -8,6 +8,7 @@ import math
 from src.settings import (
     FLASHLIGHT_MAX,
     FLASHLIGHT_START,
+    MAX_PITCH_ANGLE,
     PLAYER_ROTATION_SPEED,
     PLAYER_SPEED,
     SANITY_MAX,
@@ -19,6 +20,20 @@ def default_flags() -> dict[str, bool]:
         "intro_seen": False,
         "got_flashlight": False,
         "got_lab_key": False,
+        "got_stair_key": False,
+        "got_plastic_card": False,
+        "found_3f_security_code": False,
+        "checked_lobby_exit": False,
+        "found_old_corridor_note": False,
+        "found_2f_shift_hint": False,
+        "checked_2f_roster": False,
+        "found_2f_code": False,
+        "opened_2f_duty_point": False,
+        "got_maintenance_pass": False,
+        "got_utility_badge": False,
+        "old_corridor_stuck": False,
+        "magnet_released": False,
+        "escaped_old_corridor": False,
         "left_lab": False,
         "heard_lecture": False,
         "entered_classroom": False,
@@ -43,6 +58,7 @@ class Player:
     x: float = 3.0
     y: float = 3.0
     angle: float = 0.0
+    pitch_angle: float = 0.0
     pitch_offset: float = 0.0
     hp: int = 100
     sanity: float = SANITY_MAX
@@ -57,7 +73,24 @@ class Player:
         self.angle = (self.angle + direction * self.rotation_speed * dt) % (math.tau)
 
     def look_vertical(self, delta: float) -> None:
-        self.pitch_offset += delta
+        self.pitch_angle = max(-MAX_PITCH_ANGLE, min(MAX_PITCH_ANGLE, self.pitch_angle + delta))
+        self.pitch_offset = self.view_pitch()
+
+    def reset_vertical_look(self) -> None:
+        self.pitch_angle = 0.0
+        self.pitch_offset = 0.0
+
+    def view_pitch(self) -> float:
+        return self.pitch_angle
+
+    def view_angle(self) -> float:
+        return self.angle
+
+    def view_direction(self) -> tuple[float, float, float]:
+        pitch = self.view_pitch()
+        yaw = self.view_angle()
+        horizontal = math.cos(pitch)
+        return math.cos(yaw) * horizontal, math.sin(yaw) * horizontal, math.sin(pitch)
 
     def move(self, direction: float, dt: float, game_map) -> None:
         self.move_vector(direction, 0.0, dt, game_map)
@@ -85,6 +118,16 @@ class Player:
         self.inventory.add(item_id)
         if item_id == "flashlight":
             self.flags["got_flashlight"] = True
+        elif item_id == "stair_key":
+            self.flags["got_stair_key"] = True
+        elif item_id == "plastic_card":
+            self.flags["got_plastic_card"] = True
+        elif item_id == "old_corridor_note":
+            self.flags["found_old_corridor_note"] = True
+        elif item_id == "maintenance_pass":
+            self.flags["got_maintenance_pass"] = True
+        elif item_id == "utility_badge":
+            self.flags["got_utility_badge"] = True
         elif item_id == "lab_key":
             self.flags["got_lab_key"] = True
         elif item_id == "note_a":

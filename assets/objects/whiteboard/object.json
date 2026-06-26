@@ -1,0 +1,10 @@
+{
+  "name": "Whiteboard",
+  "length": 2.4,
+  "width": 0.08,
+  "height": 1.2,
+  "placement_height": 1.0,
+  "solid": true,
+  "prompt": "Press Space to inspect Whiteboard",
+  "description": "Whiteboard"
+}

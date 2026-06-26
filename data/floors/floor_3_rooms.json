@@ -69,21 +69,21 @@
     },
     {
       "room_id": 8,
-      "x": 140,
-      "y": 1,
-      "w": 8,
-      "h": 20,
-      "name": "Room 8",
-      "number": "8"
+      "x": 120,
+      "y": 9,
+      "w": 11,
+      "h": 9,
+      "name": "3F Day Security Room",
+      "number": "Security"
     },
     {
       "room_id": 9,
-      "x": 132,
-      "y": 0,
-      "w": 10,
-      "h": 20,
-      "name": "Room 9",
-      "number": "9"
+      "x": 149,
+      "y": 9,
+      "w": 14,
+      "h": 9,
+      "name": "3F Power Room",
+      "number": "Power"
     },
     {
       "room_id": 10,
@@ -28548,47 +28548,47 @@
     {
       "x": 120,
       "y": 9,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 120,
       "y": 10,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 120,
       "y": 11,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 120,
       "y": 12,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 120,
       "y": 13,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 120,
       "y": 14,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 120,
       "y": 15,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 120,
       "y": 16,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 120,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 120,
@@ -28788,7 +28788,7 @@
     {
       "x": 121,
       "y": 9,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 121,
@@ -28828,7 +28828,7 @@
     {
       "x": 121,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 121,
@@ -29028,7 +29028,7 @@
     {
       "x": 122,
       "y": 9,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 122,
@@ -29068,7 +29068,7 @@
     {
       "x": 122,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 122,
@@ -29268,7 +29268,7 @@
     {
       "x": 123,
       "y": 9,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 123,
@@ -29308,7 +29308,7 @@
     {
       "x": 123,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 123,
@@ -29508,7 +29508,7 @@
     {
       "x": 124,
       "y": 9,
-      "symbol": "."
+      "symbol": "G"
     },
     {
       "x": 124,
@@ -29548,7 +29548,7 @@
     {
       "x": 124,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 124,
@@ -29748,7 +29748,7 @@
     {
       "x": 125,
       "y": 9,
-      "symbol": "."
+      "symbol": "G"
     },
     {
       "x": 125,
@@ -29788,7 +29788,7 @@
     {
       "x": 125,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 125,
@@ -29988,7 +29988,7 @@
     {
       "x": 126,
       "y": 9,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 126,
@@ -30028,7 +30028,7 @@
     {
       "x": 126,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 126,
@@ -30228,7 +30228,7 @@
     {
       "x": 127,
       "y": 9,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 127,
@@ -30268,7 +30268,7 @@
     {
       "x": 127,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 127,
@@ -30468,7 +30468,7 @@
     {
       "x": 128,
       "y": 9,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 128,
@@ -30508,7 +30508,7 @@
     {
       "x": 128,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 128,
@@ -30708,7 +30708,7 @@
     {
       "x": 129,
       "y": 9,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 129,
@@ -30748,7 +30748,7 @@
     {
       "x": 129,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 129,
@@ -30948,47 +30948,47 @@
     {
       "x": 130,
       "y": 9,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 130,
       "y": 10,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 130,
       "y": 11,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 130,
       "y": 12,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 130,
       "y": 13,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 130,
       "y": 14,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 130,
       "y": 15,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 130,
       "y": 16,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 130,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 130,
@@ -35438,47 +35438,47 @@
     {
       "x": 149,
       "y": 9,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 149,
       "y": 10,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 149,
       "y": 11,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 149,
       "y": 12,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 149,
       "y": 13,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 149,
       "y": 14,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 149,
       "y": 15,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 149,
       "y": 16,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 149,
       "y": 17,
-      "symbol": "."
+      "symbol": "#"
     },
     {
       "x": 149,
@@ -35673,7 +35673,7 @@
     {
       "x": 150,
       "y": 8,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 150,
@@ -35683,37 +35683,37 @@
     {
       "x": 150,
       "y": 10,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 150,
       "y": 11,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 150,
       "y": 12,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 150,
       "y": 13,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 150,
       "y": 14,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 150,
       "y": 15,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 150,
       "y": 16,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 150,
@@ -35913,7 +35913,7 @@
     {
       "x": 151,
       "y": 8,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 151,
@@ -35923,37 +35923,37 @@
     {
       "x": 151,
       "y": 10,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 151,
       "y": 11,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 151,
       "y": 12,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 151,
       "y": 13,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 151,
       "y": 14,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 151,
       "y": 15,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 151,
       "y": 16,
-      "symbol": "#"
+      "symbol": "."
     },
     {
       "x": 151,
@@ -36108,13 +36108,573 @@
     {
       "x": 151,
       "y": 47,
+      "symbol": "#"
+    },
+    {
+      "x": 152,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 152,
+      "y": 9,
+      "symbol": "#"
+    },
+    {
+      "x": 152,
+      "y": 10,
+      "symbol": "."
+    },
+    {
+      "x": 152,
+      "y": 11,
+      "symbol": "."
+    },
+    {
+      "x": 152,
+      "y": 12,
+      "symbol": "."
+    },
+    {
+      "x": 152,
+      "y": 13,
+      "symbol": "."
+    },
+    {
+      "x": 152,
+      "y": 14,
+      "symbol": "."
+    },
+    {
+      "x": 152,
+      "y": 15,
+      "symbol": "."
+    },
+    {
+      "x": 152,
+      "y": 16,
+      "symbol": "."
+    },
+    {
+      "x": 152,
+      "y": 17,
+      "symbol": "#"
+    },
+    {
+      "x": 153,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 153,
+      "y": 9,
+      "symbol": "P"
+    },
+    {
+      "x": 153,
+      "y": 10,
+      "symbol": "."
+    },
+    {
+      "x": 153,
+      "y": 11,
+      "symbol": "."
+    },
+    {
+      "x": 153,
+      "y": 12,
+      "symbol": "."
+    },
+    {
+      "x": 153,
+      "y": 13,
+      "symbol": "."
+    },
+    {
+      "x": 153,
+      "y": 14,
+      "symbol": "."
+    },
+    {
+      "x": 153,
+      "y": 15,
+      "symbol": "."
+    },
+    {
+      "x": 153,
+      "y": 16,
+      "symbol": "."
+    },
+    {
+      "x": 153,
+      "y": 17,
+      "symbol": "#"
+    },
+    {
+      "x": 154,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 154,
+      "y": 9,
+      "symbol": "P"
+    },
+    {
+      "x": 154,
+      "y": 10,
+      "symbol": "."
+    },
+    {
+      "x": 154,
+      "y": 11,
+      "symbol": "."
+    },
+    {
+      "x": 154,
+      "y": 12,
+      "symbol": "."
+    },
+    {
+      "x": 154,
+      "y": 13,
+      "symbol": "."
+    },
+    {
+      "x": 154,
+      "y": 14,
+      "symbol": "."
+    },
+    {
+      "x": 154,
+      "y": 15,
+      "symbol": "."
+    },
+    {
+      "x": 154,
+      "y": 16,
+      "symbol": "."
+    },
+    {
+      "x": 154,
+      "y": 17,
+      "symbol": "#"
+    },
+    {
+      "x": 155,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 155,
+      "y": 9,
+      "symbol": "#"
+    },
+    {
+      "x": 155,
+      "y": 10,
+      "symbol": "."
+    },
+    {
+      "x": 155,
+      "y": 11,
+      "symbol": "."
+    },
+    {
+      "x": 155,
+      "y": 12,
+      "symbol": "."
+    },
+    {
+      "x": 155,
+      "y": 13,
+      "symbol": "."
+    },
+    {
+      "x": 155,
+      "y": 14,
+      "symbol": "."
+    },
+    {
+      "x": 155,
+      "y": 15,
+      "symbol": "."
+    },
+    {
+      "x": 155,
+      "y": 16,
+      "symbol": "."
+    },
+    {
+      "x": 155,
+      "y": 17,
+      "symbol": "#"
+    },
+    {
+      "x": 156,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 156,
+      "y": 9,
+      "symbol": "#"
+    },
+    {
+      "x": 156,
+      "y": 10,
+      "symbol": "."
+    },
+    {
+      "x": 156,
+      "y": 11,
+      "symbol": "."
+    },
+    {
+      "x": 156,
+      "y": 12,
+      "symbol": "."
+    },
+    {
+      "x": 156,
+      "y": 13,
+      "symbol": "."
+    },
+    {
+      "x": 156,
+      "y": 14,
+      "symbol": "."
+    },
+    {
+      "x": 156,
+      "y": 15,
+      "symbol": "."
+    },
+    {
+      "x": 156,
+      "y": 16,
+      "symbol": "."
+    },
+    {
+      "x": 156,
+      "y": 17,
+      "symbol": "#"
+    },
+    {
+      "x": 157,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 157,
+      "y": 9,
+      "symbol": "#"
+    },
+    {
+      "x": 157,
+      "y": 10,
+      "symbol": "."
+    },
+    {
+      "x": 157,
+      "y": 11,
+      "symbol": "."
+    },
+    {
+      "x": 157,
+      "y": 12,
+      "symbol": "."
+    },
+    {
+      "x": 157,
+      "y": 13,
+      "symbol": "."
+    },
+    {
+      "x": 157,
+      "y": 14,
+      "symbol": "."
+    },
+    {
+      "x": 157,
+      "y": 15,
+      "symbol": "."
+    },
+    {
+      "x": 157,
+      "y": 16,
+      "symbol": "."
+    },
+    {
+      "x": 157,
+      "y": 17,
+      "symbol": "#"
+    },
+    {
+      "x": 158,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 158,
+      "y": 9,
+      "symbol": "#"
+    },
+    {
+      "x": 158,
+      "y": 10,
+      "symbol": "."
+    },
+    {
+      "x": 158,
+      "y": 11,
+      "symbol": "."
+    },
+    {
+      "x": 158,
+      "y": 12,
+      "symbol": "."
+    },
+    {
+      "x": 158,
+      "y": 13,
+      "symbol": "."
+    },
+    {
+      "x": 158,
+      "y": 14,
+      "symbol": "."
+    },
+    {
+      "x": 158,
+      "y": 15,
+      "symbol": "."
+    },
+    {
+      "x": 158,
+      "y": 16,
+      "symbol": "."
+    },
+    {
+      "x": 158,
+      "y": 17,
+      "symbol": "#"
+    },
+    {
+      "x": 159,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 159,
+      "y": 9,
+      "symbol": "#"
+    },
+    {
+      "x": 159,
+      "y": 10,
+      "symbol": "."
+    },
+    {
+      "x": 159,
+      "y": 11,
+      "symbol": "."
+    },
+    {
+      "x": 159,
+      "y": 12,
+      "symbol": "."
+    },
+    {
+      "x": 159,
+      "y": 13,
+      "symbol": "."
+    },
+    {
+      "x": 159,
+      "y": 14,
+      "symbol": "."
+    },
+    {
+      "x": 159,
+      "y": 15,
+      "symbol": "."
+    },
+    {
+      "x": 159,
+      "y": 16,
+      "symbol": "."
+    },
+    {
+      "x": 159,
+      "y": 17,
+      "symbol": "#"
+    },
+    {
+      "x": 160,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 160,
+      "y": 9,
+      "symbol": "#"
+    },
+    {
+      "x": 160,
+      "y": 10,
+      "symbol": "."
+    },
+    {
+      "x": 160,
+      "y": 11,
+      "symbol": "."
+    },
+    {
+      "x": 160,
+      "y": 12,
+      "symbol": "."
+    },
+    {
+      "x": 160,
+      "y": 13,
+      "symbol": "."
+    },
+    {
+      "x": 160,
+      "y": 14,
+      "symbol": "."
+    },
+    {
+      "x": 160,
+      "y": 15,
+      "symbol": "."
+    },
+    {
+      "x": 160,
+      "y": 16,
+      "symbol": "."
+    },
+    {
+      "x": 160,
+      "y": 17,
+      "symbol": "#"
+    },
+    {
+      "x": 161,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 161,
+      "y": 9,
+      "symbol": "#"
+    },
+    {
+      "x": 161,
+      "y": 10,
+      "symbol": "."
+    },
+    {
+      "x": 161,
+      "y": 11,
+      "symbol": "."
+    },
+    {
+      "x": 161,
+      "y": 12,
+      "symbol": "."
+    },
+    {
+      "x": 161,
+      "y": 13,
+      "symbol": "."
+    },
+    {
+      "x": 161,
+      "y": 14,
+      "symbol": "."
+    },
+    {
+      "x": 161,
+      "y": 15,
+      "symbol": "."
+    },
+    {
+      "x": 161,
+      "y": 16,
+      "symbol": "."
+    },
+    {
+      "x": 161,
+      "y": 17,
+      "symbol": "#"
+    },
+    {
+      "x": 162,
+      "y": 8,
+      "symbol": "."
+    },
+    {
+      "x": 162,
+      "y": 9,
+      "symbol": "#"
+    },
+    {
+      "x": 162,
+      "y": 10,
+      "symbol": "#"
+    },
+    {
+      "x": 162,
+      "y": 11,
+      "symbol": "#"
+    },
+    {
+      "x": 162,
+      "y": 12,
+      "symbol": "#"
+    },
+    {
+      "x": 162,
+      "y": 13,
+      "symbol": "#"
+    },
+    {
+      "x": 162,
+      "y": 14,
+      "symbol": "#"
+    },
+    {
+      "x": 162,
+      "y": 15,
+      "symbol": "#"
+    },
+    {
+      "x": 162,
+      "y": 16,
+      "symbol": "#"
+    },
+    {
+      "x": 162,
+      "y": 17,
       "symbol": "#"
     }
   ],
   "objects": [
     {
-      "x": 2,
-      "y": 45,
+      "x": 141,
+      "y": 1,
+      "object_id": "elevator",
+      "rotation": 0,
+      "length": 6.0,
+      "width": 0.08,
+      "height": 5.0,
+      "placement_height": 0.0
+    },
+    {
+      "x": 36,
+      "y": 2,
       "object_id": "blackboard",
       "rotation": 0,
       "length": 8.0,
@@ -36123,108 +36683,144 @@
       "placement_height": 1.5
     },
     {
-      "x": 3,
-      "y": 34,
-      "object_id": "desk",
+      "x": 158,
+      "y": 10,
+      "object_id": "switch_box",
       "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
+      "length": 1.0,
+      "width": 0.08,
       "height": 1.2,
-      "placement_height": 0.0
+      "placement_height": 1.0,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "power_box",
+      "trigger_once": false,
+      "resource_role": "required",
+      "interaction_prompt": "? Space ???????"
     },
     {
-      "x": 3,
-      "y": 36,
-      "object_id": "desk",
+      "x": 70,
+      "y": 2,
+      "object_id": "blackboard",
       "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
+      "length": 8.0,
+      "width": 0.08,
+      "height": 2.0,
+      "placement_height": 1.5
     },
     {
-      "x": 3,
-      "y": 38,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 3,
-      "y": 40,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 3,
-      "y": 42,
+      "x": 16,
+      "y": 4,
       "object_id": "desk",
       "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 20,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 24,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 28,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 50,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 4,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 37,
+      "y": 5,
+      "object_id": "desk",
+      "rotation": 270,
       "length": 1.0,
       "width": 2.0,
       "height": 1.2,
       "placement_height": 0.0
     },
     {
-      "x": 4,
-      "y": 8,
+      "x": 41,
+      "y": 5,
       "object_id": "desk",
       "rotation": 0,
       "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 71,
+      "y": 5,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 1.0,
       "width": 2.0,
       "height": 1.2,
       "placement_height": 0.0
     },
     {
-      "x": 7,
-      "y": 34,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 7,
-      "y": 36,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 7,
-      "y": 38,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 7,
-      "y": 40,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 7,
-      "y": 42,
+      "x": 75,
+      "y": 5,
       "object_id": "desk",
       "rotation": 0,
       "length": 2.0,
@@ -36243,88 +36839,18 @@
       "placement_height": 1.5
     },
     {
-      "x": 16,
-      "y": 4,
-      "object_id": "desk",
+      "x": 46,
+      "y": 6,
+      "object_id": "blackboard",
       "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
+      "length": 8.0,
+      "width": 0.08,
+      "height": 2.0,
+      "placement_height": 1.5
     },
     {
       "x": 16,
       "y": 7,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 16,
-      "y": 11,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 16,
-      "y": 14,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 16,
-      "y": 32,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 16,
-      "y": 35,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 16,
-      "y": 39,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 16,
-      "y": 42,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 20,
-      "y": 4,
       "object_id": "desk",
       "rotation": 90,
       "length": 2.0,
@@ -36343,8 +36869,8 @@
       "placement_height": 0.0
     },
     {
-      "x": 20,
-      "y": 11,
+      "x": 24,
+      "y": 7,
       "object_id": "desk",
       "rotation": 90,
       "length": 2.0,
@@ -36353,8 +36879,8 @@
       "placement_height": 0.0
     },
     {
-      "x": 20,
-      "y": 14,
+      "x": 28,
+      "y": 7,
       "object_id": "desk",
       "rotation": 90,
       "length": 2.0,
@@ -36363,44 +36889,126 @@
       "placement_height": 0.0
     },
     {
-      "x": 20,
-      "y": 32,
+      "x": 37,
+      "y": 7,
       "object_id": "desk",
-      "rotation": 270,
+      "rotation": 0,
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
       "placement_height": 0.0
     },
     {
-      "x": 20,
-      "y": 35,
+      "x": 41,
+      "y": 7,
       "object_id": "desk",
-      "rotation": 270,
+      "rotation": 0,
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
       "placement_height": 0.0
     },
     {
-      "x": 20,
-      "y": 39,
+      "x": 50,
+      "y": 7,
       "object_id": "desk",
-      "rotation": 270,
+      "rotation": 90,
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
       "placement_height": 0.0
     },
     {
-      "x": 20,
-      "y": 42,
+      "x": 54,
+      "y": 7,
       "object_id": "desk",
-      "rotation": 270,
+      "rotation": 90,
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
       "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 7,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 7,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 71,
+      "y": 7,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 75,
+      "y": 7,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 4,
+      "y": 8,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 2.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 124,
+      "y": 12,
+      "object_id": "fuse",
+      "rotation": 0,
+      "length": 0.4,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "fuse_cabinet",
+      "trigger_once": true,
+      "resource_role": "required",
+      "interaction_prompt": "? Space ?????"
+    },
+    {
+      "x": 151,
+      "y": 12,
+      "rotation": 0,
+      "object_id": "card",
+      "length": 0.45,
+      "width": 0.3,
+      "height": 0.04,
+      "placement_height": 0.05,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "plastic_card_3f",
+      "trigger_once": true,
+      "resource_role": "required",
+      "interaction_prompt": "? Space ??????"
     },
     {
       "x": 21,
@@ -36413,23 +37021,66 @@
       "placement_height": 1.5
     },
     {
-      "x": 21,
-      "y": 37,
-      "object_id": "4",
+      "x": 37,
+      "y": 9,
+      "object_id": "desk",
       "rotation": 0,
-      "length": 1.0,
+      "length": 2.0,
       "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "trigger",
-      "is_trigger": true,
-      "trigger_id": "security_desk",
-      "trigger_once": true,
-      "resource_role": "required"
+      "height": 1.2,
+      "placement_height": 0.0
     },
     {
-      "x": 24,
-      "y": 4,
+      "x": 41,
+      "y": 9,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 71,
+      "y": 9,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 75,
+      "y": 9,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 101,
+      "y": 9,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3,
+      "interaction_prompt": "按 Space 拾取电池"
+    },
+    {
+      "x": 16,
+      "y": 11,
       "object_id": "desk",
       "rotation": 90,
       "length": 2.0,
@@ -36438,8 +37089,8 @@
       "placement_height": 0.0
     },
     {
-      "x": 24,
-      "y": 7,
+      "x": 20,
+      "y": 11,
       "object_id": "desk",
       "rotation": 90,
       "length": 2.0,
@@ -36458,76 +37109,6 @@
       "placement_height": 0.0
     },
     {
-      "x": 24,
-      "y": 14,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 24,
-      "y": 32,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 24,
-      "y": 35,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 24,
-      "y": 39,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 24,
-      "y": 42,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 28,
-      "y": 4,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 28,
-      "y": 7,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
       "x": 28,
       "y": 11,
       "object_id": "desk",
@@ -36538,10 +37119,320 @@
       "placement_height": 0.0
     },
     {
+      "x": 37,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 41,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 50,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 71,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 75,
+      "y": 11,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 106,
+      "y": 12,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3,
+      "interaction_prompt": "按 Space 拾取电池"
+    },
+    {
+      "x": 122,
+      "y": 12,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3,
+      "interaction_prompt": "按 Space 拾取电池"
+    },
+    {
+      "x": 37,
+      "y": 13,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 41,
+      "y": 13,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 71,
+      "y": 13,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 75,
+      "y": 13,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 16,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 20,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 24,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
       "x": 28,
       "y": 14,
       "object_id": "desk",
       "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 50,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 14,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 120,
+      "y": 28,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3,
+      "interaction_prompt": "按 Space 拾取电池"
+    },
+    {
+      "x": 106,
+      "y": 30,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3,
+      "interaction_prompt": "按 Space 拾取电池"
+    },
+    {
+      "x": 120,
+      "y": 30,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3,
+      "interaction_prompt": "按 Space 拾取电池"
+    },
+    {
+      "x": 16,
+      "y": 32,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 20,
+      "y": 32,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 24,
+      "y": 32,
+      "object_id": "desk",
+      "rotation": 270,
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
@@ -36558,8 +37449,8 @@
       "placement_height": 0.0
     },
     {
-      "x": 28,
-      "y": 35,
+      "x": 50,
+      "y": 32,
       "object_id": "desk",
       "rotation": 270,
       "length": 2.0,
@@ -36568,8 +37459,8 @@
       "placement_height": 0.0
     },
     {
-      "x": 28,
-      "y": 39,
+      "x": 54,
+      "y": 32,
       "object_id": "desk",
       "rotation": 270,
       "length": 2.0,
@@ -36578,10 +37469,40 @@
       "placement_height": 0.0
     },
     {
-      "x": 28,
-      "y": 42,
+      "x": 58,
+      "y": 32,
       "object_id": "desk",
-      "rotation": 90,
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 32,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 3,
+      "y": 34,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 7,
+      "y": 34,
+      "object_id": "desk",
+      "rotation": 0,
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
@@ -36598,183 +37519,8 @@
       "placement_height": 1.5
     },
     {
-      "x": 36,
-      "y": 2,
-      "object_id": "blackboard",
-      "rotation": 0,
-      "length": 8.0,
-      "width": 0.08,
-      "height": 2.0,
-      "placement_height": 1.5
-    },
-    {
-      "x": 36,
-      "y": 8,
-      "object_id": "5",
-      "rotation": 0,
-      "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "trigger",
-      "is_trigger": true,
-      "trigger_id": "fuse_cabinet",
-      "trigger_once": true,
-      "resource_role": "required"
-    },
-    {
-      "x": 36,
-      "y": 45,
-      "object_id": "blackboard",
-      "rotation": 0,
-      "length": 8.0,
-      "width": 0.08,
-      "height": 2.0,
-      "placement_height": 1.5
-    },
-    {
-      "x": 37,
-      "y": 5,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 1.0,
-      "width": 2.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 37,
-      "y": 7,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 37,
-      "y": 9,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 37,
-      "y": 11,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 37,
-      "y": 13,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
       "x": 37,
       "y": 34,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 37,
-      "y": 36,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 37,
-      "y": 38,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 37,
-      "y": 40,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 37,
-      "y": 42,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 1.0,
-      "width": 2.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 41,
-      "y": 5,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 41,
-      "y": 7,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 41,
-      "y": 9,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 41,
-      "y": 11,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 41,
-      "y": 13,
       "object_id": "desk",
       "rotation": 0,
       "length": 2.0,
@@ -36787,406 +37533,6 @@
       "y": 34,
       "object_id": "desk",
       "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 41,
-      "y": 36,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 41,
-      "y": 38,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 41,
-      "y": 40,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 41,
-      "y": 42,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 46,
-      "y": 6,
-      "object_id": "blackboard",
-      "rotation": 90,
-      "length": 8.0,
-      "width": 0.08,
-      "height": 2.0,
-      "placement_height": 1.5
-    },
-    {
-      "x": 50,
-      "y": 2,
-      "object_id": "7",
-      "rotation": 0,
-      "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "trigger",
-      "is_trigger": true,
-      "trigger_id": "power_box",
-      "trigger_once": true,
-      "resource_role": "required"
-    },
-    {
-      "x": 50,
-      "y": 4,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 50,
-      "y": 7,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 50,
-      "y": 11,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 50,
-      "y": 14,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 50,
-      "y": 32,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 50,
-      "y": 35,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 50,
-      "y": 39,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 50,
-      "y": 42,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 54,
-      "y": 4,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 54,
-      "y": 7,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 54,
-      "y": 11,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 54,
-      "y": 14,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 54,
-      "y": 32,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 54,
-      "y": 35,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 54,
-      "y": 39,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 54,
-      "y": 42,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 55,
-      "y": 37,
-      "object_id": "8",
-      "rotation": 0,
-      "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "trigger",
-      "is_trigger": true,
-      "trigger_id": "server_terminal",
-      "trigger_once": true,
-      "resource_role": "required"
-    },
-    {
-      "x": 58,
-      "y": 4,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 58,
-      "y": 7,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 58,
-      "y": 11,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 58,
-      "y": 14,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 58,
-      "y": 32,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 58,
-      "y": 35,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 58,
-      "y": 39,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 58,
-      "y": 42,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 62,
-      "y": 4,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 62,
-      "y": 7,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 62,
-      "y": 11,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 62,
-      "y": 14,
-      "object_id": "desk",
-      "rotation": 90,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 62,
-      "y": 32,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 62,
-      "y": 35,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 62,
-      "y": 39,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 62,
-      "y": 42,
-      "object_id": "desk",
-      "rotation": 90,
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
@@ -37203,84 +37549,138 @@
       "placement_height": 1.5
     },
     {
-      "x": 70,
-      "y": 2,
-      "object_id": "blackboard",
-      "rotation": 0,
-      "length": 8.0,
-      "width": 0.08,
-      "height": 2.0,
-      "placement_height": 1.5,
-      "element_type": "trigger",
-      "is_trigger": true,
-      "trigger_id": "blackboard_clue",
-      "trigger_once": true,
-      "resource_role": "required",
-      "interaction_prompt": "? Space ????"
-    },
-    {
-      "x": 70,
-      "y": 45,
-      "object_id": "blackboard",
-      "rotation": 0,
-      "length": 8.0,
-      "width": 0.08,
-      "height": 2.0,
-      "placement_height": 1.5
-    },
-    {
-      "x": 71,
-      "y": 5,
-      "object_id": "desk",
-      "rotation": 270,
-      "length": 1.0,
-      "width": 2.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 71,
-      "y": 7,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 71,
-      "y": 9,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 71,
-      "y": 11,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 71,
-      "y": 13,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
       "x": 71,
       "y": 34,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 75,
+      "y": 34,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 16,
+      "y": 35,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 20,
+      "y": 35,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 24,
+      "y": 35,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 28,
+      "y": 35,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 50,
+      "y": 35,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 35,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 35,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 35,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 3,
+      "y": 36,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 7,
+      "y": 36,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 37,
+      "y": 36,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 41,
+      "y": 36,
       "object_id": "desk",
       "rotation": 0,
       "length": 2.0,
@@ -37299,8 +37699,214 @@
       "placement_height": 0.0
     },
     {
+      "x": 75,
+      "y": 36,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 132,
+      "y": 8,
+      "object_id": "note",
+      "rotation": 0,
+      "length": 0.6,
+      "width": 0.45,
+      "height": 0.04,
+      "placement_height": 0.05,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "security_code_648",
+      "trigger_once": true,
+      "resource_role": "required",
+      "interaction_prompt": "? Space ????????"
+    },
+    {
+      "x": 55,
+      "y": 37,
+      "object_id": "8",
+      "rotation": 0,
+      "length": 1.0,
+      "width": 1.0,
+      "height": 1.0,
+      "placement_height": 0.0
+    },
+    {
+      "x": 3,
+      "y": 38,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 7,
+      "y": 38,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 37,
+      "y": 38,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 41,
+      "y": 38,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
       "x": 71,
       "y": 38,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 75,
+      "y": 38,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 16,
+      "y": 39,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 20,
+      "y": 39,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 24,
+      "y": 39,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 28,
+      "y": 39,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 50,
+      "y": 39,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 39,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 39,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 39,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 3,
+      "y": 40,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 7,
+      "y": 40,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 37,
+      "y": 40,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 41,
+      "y": 40,
       "object_id": "desk",
       "rotation": 0,
       "length": 2.0,
@@ -37313,6 +37919,200 @@
       "y": 40,
       "object_id": "desk",
       "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 75,
+      "y": 40,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 100,
+      "y": 40,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3,
+      "interaction_prompt": "按 Space 拾取电池"
+    },
+    {
+      "x": 102,
+      "y": 40,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3,
+      "interaction_prompt": "按 Space 拾取电池"
+    },
+    {
+      "x": 126,
+      "y": 40,
+      "object_id": "elevator",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 0.08,
+      "height": 3.0,
+      "placement_height": 0.0
+    },
+    {
+      "x": 136,
+      "y": 40,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "is_trigger": false,
+      "resource_role": "optional",
+      "pickup_item": "battery",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3,
+      "interaction_prompt": "按 Space 拾取电池"
+    },
+    {
+      "x": 3,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 1.0,
+      "width": 2.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 7,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 16,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 20,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 24,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 28,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 37,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 90,
+      "length": 1.0,
+      "width": 2.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 41,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 0,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 50,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 54,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 270,
+      "length": 2.0,
+      "width": 1.0,
+      "height": 1.2,
+      "placement_height": 0.0
+    },
+    {
+      "x": 62,
+      "y": 42,
+      "object_id": "desk",
+      "rotation": 90,
       "length": 2.0,
       "width": 1.0,
       "height": 1.2,
@@ -37330,102 +38130,6 @@
     },
     {
       "x": 75,
-      "y": 5,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0,
-      "element_type": "trigger",
-      "is_trigger": true,
-      "trigger_id": "lab_desk_supplies",
-      "trigger_once": true,
-      "resource_role": "required",
-      "interaction_prompt": "? Space ?????"
-    },
-    {
-      "x": 75,
-      "y": 7,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 75,
-      "y": 9,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 75,
-      "y": 11,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 75,
-      "y": 13,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 75,
-      "y": 34,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 75,
-      "y": 36,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 75,
-      "y": 38,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 75,
-      "y": 40,
-      "object_id": "desk",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 1.0,
-      "height": 1.2,
-      "placement_height": 0.0
-    },
-    {
-      "x": 75,
       "y": 42,
       "object_id": "desk",
       "rotation": 0,
@@ -37435,167 +38139,53 @@
       "placement_height": 0.0
     },
     {
-      "x": 100,
-      "y": 40,
-      "object_id": "6",
+      "x": 2,
+      "y": 45,
+      "object_id": "blackboard",
       "rotation": 0,
-      "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "pickup",
-      "is_trigger": false,
-      "resource_role": "optional",
-      "pickup_item": "battery",
-      "remove_on_pickup": true,
-      "interaction_prompt": "? Space ????"
+      "length": 8.0,
+      "width": 0.08,
+      "height": 2.0,
+      "placement_height": 1.5
     },
     {
-      "x": 101,
-      "y": 9,
-      "object_id": "6",
+      "x": 36,
+      "y": 45,
+      "object_id": "blackboard",
       "rotation": 0,
-      "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "pickup",
-      "is_trigger": false,
-      "resource_role": "optional",
-      "pickup_item": "battery",
-      "remove_on_pickup": true,
-      "interaction_prompt": "? Space ????"
+      "length": 8.0,
+      "width": 0.08,
+      "height": 2.0,
+      "placement_height": 1.5
     },
     {
-      "x": 102,
-      "y": 40,
-      "object_id": "6",
+      "x": 70,
+      "y": 45,
+      "object_id": "blackboard",
       "rotation": 0,
-      "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "pickup",
-      "is_trigger": false,
-      "resource_role": "optional",
-      "pickup_item": "battery",
-      "remove_on_pickup": true,
-      "interaction_prompt": "? Space ????"
-    },
-    {
-      "x": 106,
-      "y": 12,
-      "object_id": "6",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "pickup",
-      "is_trigger": false,
-      "resource_role": "optional",
-      "pickup_item": "battery",
-      "remove_on_pickup": true,
-      "interaction_prompt": "? Space ????"
-    },
-    {
-      "x": 106,
-      "y": 30,
-      "object_id": "6",
-      "rotation": 0,
-      "length": 1.0,
-      "width": 1.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "pickup",
-      "is_trigger": false,
-      "resource_role": "optional",
-      "pickup_item": "battery",
-      "remove_on_pickup": true,
-      "interaction_prompt": "? Space ????"
-    },
-    {
-      "x": 120,
-      "y": 28,
-      "object_id": "6",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "pickup",
-      "is_trigger": false,
-      "resource_role": "optional",
-      "pickup_item": "battery",
-      "remove_on_pickup": true,
-      "interaction_prompt": "? Space ????"
-    },
-    {
-      "x": 120,
-      "y": 30,
-      "object_id": "6",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "pickup",
-      "is_trigger": false,
-      "resource_role": "optional",
-      "pickup_item": "battery",
-      "remove_on_pickup": true,
-      "interaction_prompt": "? Space ????"
+      "length": 8.0,
+      "width": 0.08,
+      "height": 2.0,
+      "placement_height": 1.5
     },
     {
       "x": 122,
       "y": 12,
-      "object_id": "6",
+      "object_id": "desk",
       "rotation": 0,
       "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "pickup",
-      "is_trigger": false,
-      "resource_role": "optional",
-      "pickup_item": "battery",
-      "remove_on_pickup": true,
-      "interaction_prompt": "? Space ????"
-    },
-    {
-      "x": 126,
-      "y": 40,
-      "object_id": "elevator",
-      "rotation": 0,
-      "length": 2.0,
-      "width": 0.08,
-      "height": 3.0,
+      "width": 1.0,
+      "height": 1.2,
       "placement_height": 0.0
     },
     {
-      "x": 136,
-      "y": 40,
-      "object_id": "6",
+      "x": 152,
+      "y": 14,
+      "object_id": "desk",
       "rotation": 0,
       "length": 2.0,
-      "width": 2.0,
-      "height": 1.0,
-      "placement_height": 0.0,
-      "element_type": "pickup",
-      "is_trigger": false,
-      "resource_role": "optional",
-      "pickup_item": "battery",
-      "remove_on_pickup": true,
-      "interaction_prompt": "? Space ????"
-    },
-    {
-      "x": 141,
-      "y": 1,
-      "object_id": "elevator",
-      "rotation": 0,
-      "length": 6.0,
-      "width": 0.08,
-      "height": 5.0,
+      "width": 1.0,
+      "height": 1.2,
       "placement_height": 0.0
     }
   ]

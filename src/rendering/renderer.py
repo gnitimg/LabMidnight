@@ -27,7 +27,6 @@ from src.settings import (
     HALF_WIDTH,
     MAX_DEPTH,
     NUM_RAYS,
-    PITCH_VISUAL_RANGE,
     RAY_NEAR_CLIP,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
@@ -92,13 +91,14 @@ class RaycastingRenderer:
     def render(self, player, elapsed: float) -> None:
         horizon = self._horizon(player)
         self._draw_background(player, elapsed, horizon)
-        start_angle = player.angle - HALF_FOV
+        view_angle = self._player_view_angle(player)
+        start_angle = view_angle - HALF_FOV
         depth_buffer = [MAX_DEPTH] * NUM_RAYS
 
         for ray in range(NUM_RAYS):
             ray_angle = start_angle + ray * DELTA_ANGLE
             distance, tile, hit_x, hit_y, side, cell, texture_offset = self._cast_ray(player.x, player.y, ray_angle)
-            corrected = max(0.0001, distance * math.cos(ray_angle - player.angle))
+            corrected = max(0.0001, distance * math.cos(ray_angle - view_angle))
             depth_buffer[ray] = corrected
             ceiling_delta = CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS
             top_y = horizon - VERTICAL_PROJECTION * ceiling_delta / corrected
@@ -121,10 +121,54 @@ class RaycastingRenderer:
         self._draw_open_doors(player, elapsed, horizon, depth_buffer)
 
     def _horizon(self, player) -> int:
-        # Keep pitch input unbounded, but map it to a finite projection range.
-        # Raw infinite horizon shifts make 2.5D wall columns clip into a line.
-        visual_pitch = PITCH_VISUAL_RANGE * math.tanh(player.pitch_offset / PITCH_VISUAL_RANGE)
-        return int(HALF_HEIGHT + visual_pitch)
+        pitch = self._player_view_pitch(player)
+        raw_horizon = HALF_HEIGHT + VERTICAL_PROJECTION * math.tan(pitch)
+        limit = SCREEN_HEIGHT * 20
+        return int(max(-limit, min(limit, raw_horizon)))
+
+    def _player_view_angle(self, player) -> float:
+        view_angle = getattr(player, "view_angle", None)
+        if callable(view_angle):
+            return view_angle()
+        return player.angle
+
+    def _player_view_pitch(self, player) -> float:
+        view_pitch = getattr(player, "view_pitch", None)
+        if callable(view_pitch):
+            return view_pitch()
+        return 0.0
+
+    def _view_basis(self, player) -> tuple[float, float, float, float, float, float, float]:
+        yaw = self._player_view_angle(player)
+        pitch = self._player_view_pitch(player)
+        yaw_x = math.cos(yaw)
+        yaw_y = math.sin(yaw)
+        right_x = -yaw_y
+        right_y = yaw_x
+        pitch_cos = math.cos(pitch)
+        pitch_sin = math.sin(pitch)
+        forward_x = yaw_x * pitch_cos
+        forward_y = yaw_y * pitch_cos
+        up_x = -yaw_x * pitch_sin
+        up_y = -yaw_y * pitch_sin
+        return forward_x, forward_y, pitch_sin, right_x, right_y, up_x, up_y
+
+    def _plane_row_hit(self, player, screen_y: float, *, is_ceiling: bool) -> tuple[float, float, float] | None:
+        forward_x, forward_y, forward_z, _right_x, _right_y, up_x, up_y = self._view_basis(player)
+        pitch = self._player_view_pitch(player)
+        up_z = math.cos(pitch)
+        vertical_offset = (HALF_HEIGHT - screen_y) / VERTICAL_PROJECTION
+        ray_z = forward_z + vertical_offset * up_z
+        plane_delta = CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS if is_ceiling else -CAMERA_HEIGHT_UNITS
+        if abs(ray_z) <= 1e-6:
+            return None
+        ray_scale = plane_delta / ray_z
+        if ray_scale <= 0:
+            return None
+        base_x = forward_x + vertical_offset * up_x
+        base_y = forward_y + vertical_offset * up_y
+        row_distance = math.hypot(base_x * ray_scale, base_y * ray_scale)
+        return ray_scale, base_x, base_y
 
     def _draw_background(self, player, elapsed: float, horizon: int) -> None:
         power_restored = player.flags.get("power_restored", False)
@@ -187,40 +231,44 @@ class RaycastingRenderer:
         if xs is None:
             return
 
-        if is_ceiling:
-            screen_rows = np.linspace(target_top, target_top + target_height - 1, sample_height, dtype=np.float32)
-        else:
-            screen_rows = np.linspace(target_top, target_top + target_height - 1, sample_height, dtype=np.float32)
+        screen_rows = np.linspace(target_top, target_top + target_height - 1, sample_height, dtype=np.float32)
+        forward_x, forward_y, forward_z, right_x, right_y, up_x, up_y = self._view_basis(player)
+        up_z = math.cos(self._player_view_pitch(player))
+        vertical_offsets = (HALF_HEIGHT - screen_rows) / VERTICAL_PROJECTION
+        ray_z = forward_z + vertical_offsets * up_z
+        plane_delta = CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS if is_ceiling else -CAMERA_HEIGHT_UNITS
+        valid_rows = np.abs(ray_z) > 1e-6
+        ray_scale = np.zeros(sample_height, dtype=np.float32)
+        ray_scale[valid_rows] = (plane_delta / ray_z[valid_rows]).astype(np.float32)
+        valid_rows &= ray_scale > 0
 
-        depth_from_horizon = np.maximum(1.0, np.abs(screen_rows - horizon))
-        plane_height = CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS if is_ceiling else CAMERA_HEIGHT_UNITS
-        row_distance = np.minimum((VERTICAL_PROJECTION * plane_height) / depth_from_horizon, MAX_DEPTH).astype(np.float32)
+        base_x = (forward_x + vertical_offsets * up_x).astype(np.float32)
+        base_y = (forward_y + vertical_offsets * up_y).astype(np.float32)
+        raw_distance = np.hypot(base_x * ray_scale, base_y * ray_scale).astype(np.float32)
+        distance_scale = np.ones(sample_height, dtype=np.float32)
+        far_rows = raw_distance > MAX_DEPTH
+        distance_scale[far_rows] = MAX_DEPTH / np.maximum(raw_distance[far_rows], 1e-6)
+        effective_ray_scale = ray_scale * distance_scale
+        row_distance = np.minimum(raw_distance, MAX_DEPTH).astype(np.float32)
+        row_distance[~valid_rows] = MAX_DEPTH
 
-        left_angle = player.angle - HALF_FOV
-        right_angle = player.angle + HALF_FOV
-        ray_dir_x0 = math.cos(left_angle)
-        ray_dir_y0 = math.sin(left_angle)
-        ray_dir_x1 = math.cos(right_angle)
-        ray_dir_y1 = math.sin(right_angle)
+        horizontal_offsets = ((xs + 0.5) * SCREEN_WIDTH / sample_width - HALF_WIDTH) / VERTICAL_PROJECTION
 
-        step_x = row_distance * (ray_dir_x1 - ray_dir_x0) / sample_width
-        step_y = row_distance * (ray_dir_y1 - ray_dir_y0) / sample_width
-        start_x = player.x + row_distance * ray_dir_x0
-        start_y = player.y + row_distance * ray_dir_y0
-
-        output = np.empty((sample_height, sample_width, 3), dtype=np.uint8)
+        output = np.zeros((sample_height, sample_width, 3), dtype=np.uint8)
         mip_indices = np.zeros(sample_height, dtype=np.int32)
         mip_indices[row_distance > 2.8] = 1
         mip_indices[row_distance > 6.5] = 2
         mip_indices[row_distance > 12.0] = 3
 
         for mip_index, texture_array in enumerate(mips):
-            row_indices = np.where(mip_indices == mip_index)[0]
+            row_indices = np.where((mip_indices == mip_index) & valid_rows)[0]
             if row_indices.size == 0:
                 continue
             texture_width, texture_height = texture_array.shape[0], texture_array.shape[1]
-            world_x = start_x[row_indices, None] + step_x[row_indices, None] * xs[None, :]
-            world_y = start_y[row_indices, None] + step_y[row_indices, None] * xs[None, :]
+            ray_x = base_x[row_indices, None] + horizontal_offsets[None, :] * right_x
+            ray_y = base_y[row_indices, None] + horizontal_offsets[None, :] * right_y
+            world_x = player.x + effective_ray_scale[row_indices, None] * ray_x
+            world_y = player.y + effective_ray_scale[row_indices, None] * ray_y
             texture_span = CEILING_TEXTURE_TILE_SPAN if is_ceiling else 1.0
             texture_x = np.mod((world_x / texture_span * texture_width).astype(np.int32), texture_width)
             texture_y = np.mod((world_y / texture_span * texture_height).astype(np.int32), texture_height)
@@ -304,37 +352,38 @@ class RaycastingRenderer:
         sample_height = self.floor_sample_height
         sample_surface.fill((0, 0, 0))
 
-        left_angle = player.angle - HALF_FOV
-        right_angle = player.angle + HALF_FOV
-        ray_dir_x0 = math.cos(left_angle)
-        ray_dir_y0 = math.sin(left_angle)
-        ray_dir_x1 = math.cos(right_angle)
-        ray_dir_y1 = math.sin(right_angle)
+        forward_x, forward_y, forward_z, right_x, right_y, up_x, up_y = self._view_basis(player)
+        up_z = math.cos(self._player_view_pitch(player))
+        plane_delta = CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS if is_ceiling else -CAMERA_HEIGHT_UNITS
 
         pixel_sample = pygame.PixelArray(sample_surface)
         try:
             for sample_y in range(sample_height):
                 screen_y = target_top + sample_y * target_height / max(1, sample_height - 1)
-
-                depth_from_horizon = abs(screen_y - horizon)
-                if depth_from_horizon <= 0:
+                vertical_offset = (HALF_HEIGHT - screen_y) / VERTICAL_PROJECTION
+                ray_z = forward_z + vertical_offset * up_z
+                if abs(ray_z) <= 1e-6:
                     continue
-                plane_height = CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS if is_ceiling else CAMERA_HEIGHT_UNITS
-                row_distance = (VERTICAL_PROJECTION * plane_height) / depth_from_horizon
-                row_distance = min(row_distance, MAX_DEPTH)
-
-                step_x = row_distance * (ray_dir_x1 - ray_dir_x0) / sample_width
-                step_y = row_distance * (ray_dir_y1 - ray_dir_y0) / sample_width
-                world_x = player.x + row_distance * ray_dir_x0
-                world_y = player.y + row_distance * ray_dir_y0
+                ray_scale = plane_delta / ray_z
+                if ray_scale <= 0:
+                    continue
+                base_x = forward_x + vertical_offset * up_x
+                base_y = forward_y + vertical_offset * up_y
+                raw_distance = math.hypot(base_x * ray_scale, base_y * ray_scale)
+                if raw_distance > MAX_DEPTH:
+                    ray_scale *= MAX_DEPTH / max(raw_distance, 1e-6)
                 texture_span = CEILING_TEXTURE_TILE_SPAN if is_ceiling else 1.0
 
                 for sample_x in range(sample_width):
+                    screen_x = (sample_x + 0.5) * SCREEN_WIDTH / sample_width
+                    horizontal_offset = (screen_x - HALF_WIDTH) / VERTICAL_PROJECTION
+                    ray_x = base_x + horizontal_offset * right_x
+                    ray_y = base_y + horizontal_offset * right_y
+                    world_x = player.x + ray_scale * ray_x
+                    world_y = player.y + ray_scale * ray_y
                     texture_x = int(world_x / texture_span * texture_width) % texture_width
                     texture_y = int(world_y / texture_span * texture_height) % texture_height
                     pixel_sample[sample_x, sample_y] = texture_pixels[texture_y][texture_x]
-                    world_x += step_x
-                    world_y += step_y
         finally:
             del pixel_sample
 
@@ -368,9 +417,11 @@ class RaycastingRenderer:
         overlay = pygame.Surface((SCREEN_WIDTH, overlay_height), pygame.SRCALPHA)
         for local_y in range(overlay_height):
             screen_y = target_top + local_y
-            depth_from_horizon = max(1, abs(screen_y - horizon))
-            plane_height = CEILING_HEIGHT_UNITS - CAMERA_HEIGHT_UNITS if is_ceiling else CAMERA_HEIGHT_UNITS
-            row_distance = (VERTICAL_PROJECTION * plane_height) / depth_from_horizon
+            row_hit = self._plane_row_hit(player, screen_y, is_ceiling=is_ceiling)
+            if row_hit is None:
+                continue
+            ray_scale, base_x, base_y = row_hit
+            row_distance = min(MAX_DEPTH, math.hypot(base_x * ray_scale, base_y * ray_scale))
             if row_distance <= 1.2:
                 alpha = 0
             else:
@@ -734,7 +785,7 @@ class RaycastingRenderer:
 
         target = pygame.Rect(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
         patch = pygame.transform.smoothscale(texture, target.size).convert_alpha()
-        shade = self._shade_factor(center_distance, player.angle, player, elapsed) * side_light
+        shade = self._shade_factor(center_distance, self._player_view_angle(player), player, elapsed) * side_light
         shade_value = max(0, min(255, int(255 * min(1.0, shade))))
         patch.fill((shade_value, shade_value, shade_value, 255), special_flags=pygame.BLEND_RGBA_MULT)
         mask = pygame.Surface(target.size, pygame.SRCALPHA)
@@ -1014,7 +1065,7 @@ class RaycastingRenderer:
             source = pygame.Rect(texture_x, source_y, 1, source_height)
             column = texture.subsurface(source)
             column = pygame.transform.scale(column, (2, visible_height))
-            shade = self._shade_factor(distance, player.angle, player, elapsed) * side_light
+            shade = self._shade_factor(distance, self._player_view_angle(player), player, elapsed) * side_light
             shade_value = max(0, min(255, int(255 * min(1.0, shade))))
             if column.get_flags() & pygame.SRCALPHA:
                 column.fill((shade_value, shade_value, shade_value, 255), special_flags=pygame.BLEND_RGBA_MULT)
@@ -1048,8 +1099,9 @@ class RaycastingRenderer:
     def _camera_space(self, x: float, y: float, player) -> tuple[float, float, float]:
         dx = x - player.x
         dy = y - player.y
-        right = -dx * math.sin(player.angle) + dy * math.cos(player.angle)
-        forward = dx * math.cos(player.angle) + dy * math.sin(player.angle)
+        view_angle = self._player_view_angle(player)
+        right = -dx * math.sin(view_angle) + dy * math.cos(view_angle)
+        forward = dx * math.cos(view_angle) + dy * math.sin(view_angle)
         return right, 0.0, forward
 
     def _draw_textured_wall(
@@ -1131,7 +1183,7 @@ class RaycastingRenderer:
             visible_distance = 30.0 if power_restored else 26.0
 
         distance_shade = max(0.10, 1.0 - distance / visible_distance)
-        center_offset = abs((ray_angle - player.angle + math.pi) % math.tau - math.pi)
+        center_offset = abs((ray_angle - self._player_view_angle(player) + math.pi) % math.tau - math.pi)
         beam = max(0.0, 1.0 - center_offset / (FOV * 0.42))
         beam_boost = 0.08 * beam * beam if player.flashlight_on and player.flashlight_power > 0 and player.has_item("flashlight") else 0.0
 

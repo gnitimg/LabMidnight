@@ -45,6 +45,7 @@ class Game:
         self.audio = AudioManager()
         self.running = True
         self.mouse_captured = False
+        self.mouse_center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
         self.state = STATE_MENU
         self.menu_selected = 0
         self.show_instructions = False
@@ -59,12 +60,14 @@ class Game:
         self.floor_transition_title = "楼层选择"
         self.floor_transition_entry_kind = ""
         self.floor_transition_source_cell: tuple[int, int] | None = None
+        self.floor_picked_objects: dict[int, set[tuple[int, int]]] = {}
         self.new_game()
         self.set_mouse_capture(False)
 
     def new_game(self) -> None:
         self.current_floor = BUILDING_TOP_FLOOR
-        self.game_map = GameMap(self.current_floor)
+        self.floor_picked_objects = {}
+        self._load_current_floor_map()
         start_x, start_y = self.game_map.start_position
         self._clear_floor_transition()
         initial = load_initial_player_config()
@@ -78,7 +81,7 @@ class Game:
         )
         self._bind_floor_systems()
         self.started_at = time.monotonic()
-        self.message = "我怎么睡着了……已经两点了，得回寝室了。"
+        self.message = "凌晨两点，空调停了。断电了，我得出去。"
         self.message_until = time.monotonic() + 5.0
         self.low_sanity_warned = False
 
@@ -86,6 +89,18 @@ class Game:
         self._sync_current_floor_power_flag()
         self.renderer = RaycastingRenderer(self.screen, self.game_map)
         self.interaction = InteractionSystem(self.game_map)
+
+    def _save_current_floor_map_state(self) -> None:
+        if hasattr(self, "game_map"):
+            self.floor_picked_objects[self.current_floor] = set(self.game_map.picked_objects)
+
+    def _load_current_floor_map(self) -> None:
+        self.game_map = GameMap(self.current_floor)
+        picked = self.floor_picked_objects.get(self.current_floor)
+        if picked is None:
+            self.floor_picked_objects[self.current_floor] = set(self.game_map.picked_objects)
+        else:
+            self.game_map.picked_objects = set(picked)
 
     def floor_power_flag(self, floor: int | None = None) -> str:
         target_floor = self.current_floor if floor is None else floor
@@ -224,13 +239,34 @@ class Game:
             self._confirm_menu()
 
     def _handle_mouse_motion(self, rel: tuple[int, int]) -> None:
-        if self.state != STATE_PLAYING:
+        if self.state != STATE_PLAYING or self.mouse_captured:
             return
-        dx, dy = rel
+        self._apply_mouse_look(*rel)
+
+    def _apply_mouse_look(self, dx: int, dy: int) -> None:
         if dx:
             self.player.angle = (self.player.angle + dx * MOUSE_SENSITIVITY) % math.tau
         if dy:
             self.player.look_vertical(-dy * MOUSE_PITCH_SENSITIVITY)
+
+    def _update_mouse_look(self) -> None:
+        if self.state != STATE_PLAYING or not self.mouse_captured:
+            return
+        try:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            center_x, center_y = self.mouse_center
+            dx = mouse_x - center_x
+            dy = mouse_y - center_y
+            if dx or dy:
+                self._apply_mouse_look(dx, dy)
+                pygame.mouse.set_pos(self.mouse_center)
+                pygame.mouse.get_rel()
+                return
+            rel_x, rel_y = pygame.mouse.get_rel()
+            if rel_x or rel_y:
+                self._apply_mouse_look(rel_x, rel_y)
+        except pygame.error:
+            pass
 
     def _confirm_menu(self) -> None:
         if self.menu_selected == 0:
@@ -265,6 +301,8 @@ class Game:
         try:
             pygame.event.set_grab(enabled)
             pygame.mouse.set_visible(not enabled)
+            if enabled:
+                pygame.mouse.set_pos(self.mouse_center)
             pygame.mouse.get_rel()
         except pygame.error:
             pass
@@ -302,7 +340,7 @@ class Game:
         entry_kind: str = "",
         source_cell: tuple[int, int] | None = None,
     ) -> None:
-        options = [floor for floor in target_floors if BUILDING_BOTTOM_FLOOR <= floor <= BUILDING_TOP_FLOOR and floor != self.current_floor]
+        options = self._allowed_floor_transition_options(target_floors, entry_kind)
         if not options:
             self.set_message("这里没有可去的楼层。", 2.0)
             self._clear_floor_transition()
@@ -314,6 +352,37 @@ class Game:
         self.floor_transition_source_cell = source_cell
         self.floor_choice_selected = 0
         self.set_state(STATE_FLOOR_CONFIRM)
+
+    def _allowed_floor_transition_options(self, target_floors: list[int], entry_kind: str) -> list[int]:
+        options = [
+            floor
+            for floor in target_floors
+            if BUILDING_BOTTOM_FLOOR <= floor <= BUILDING_TOP_FLOOR and floor != self.current_floor
+        ]
+        entry_kind = entry_kind.strip().lower()
+        if entry_kind == "exit":
+            allowed = set(self._allowed_exit_floors())
+            return [floor for floor in options if floor in allowed]
+        if entry_kind == "elevator":
+            allowed = set(self._allowed_elevator_floors())
+            return [floor for floor in options if floor in allowed]
+        return options
+
+    def _allowed_exit_floors(self) -> list[int]:
+        if self.current_floor == BUILDING_TOP_FLOOR:
+            return [BUILDING_TOP_FLOOR - 1] if self.player.has_item("stair_key") or self.player.has_item("lab_key") else []
+        if self.current_floor == 3:
+            return [BUILDING_TOP_FLOOR]
+        if self.current_floor == BUILDING_BOTTOM_FLOOR:
+            return [2] if self.player.has_item("old_corridor_note") else []
+        if self.current_floor == 2:
+            return [BUILDING_BOTTOM_FLOOR]
+        return []
+
+    def _allowed_elevator_floors(self) -> list[int]:
+        if self.current_floor == 3 and self.is_floor_power_restored():
+            return [BUILDING_BOTTOM_FLOOR]
+        return []
 
     def _confirm_floor_choice(self) -> None:
         if not self.floor_transition_options:
@@ -330,8 +399,9 @@ class Game:
             self._clear_floor_transition()
             self.set_state(STATE_PLAYING)
             return
+        self._save_current_floor_map_state()
         self.current_floor = target_floor
-        self.game_map = GameMap(self.current_floor)
+        self._load_current_floor_map()
         entry_pose = self.game_map.entry_spawn_pose(entry_kind, source_cell) if entry_kind else None
         if entry_pose is not None:
             x, y, angle = entry_pose
@@ -343,7 +413,7 @@ class Game:
         self.player.x = x
         self.player.y = y
         self.player.angle = angle
-        self.player.pitch_offset = 0.0
+        self.player.reset_vertical_look()
         self._bind_floor_systems()
         self._clear_floor_transition()
         self.set_state(STATE_PLAYING)
@@ -355,6 +425,7 @@ class Game:
     def update(self, dt: float) -> None:
         if self.state != STATE_PLAYING:
             return
+        self._update_mouse_look()
         self._handle_continuous_input(dt)
         self.game_map.update_doors(dt)
         self._update_player_state(dt)
@@ -399,8 +470,9 @@ class Game:
     def _update_story_triggers(self) -> None:
         player = self.player
         if self.current_floor == BUILDING_BOTTOM_FLOOR and self.game_map.reached_ground_exit(player.x, player.y):
-            player.flags["exit_opened"] = True
-            self.enter_success()
+            if not player.flags.get("checked_lobby_exit", False):
+                player.flags["checked_lobby_exit"] = True
+                self.set_message("门外挂着铁锁。门禁通过了，门没通过。", 3.0)
             return
 
         region = self.game_map.region_at(player.x, player.y)
@@ -409,14 +481,12 @@ class Game:
             self.audio.play_loop("ambient_lab", volume=0.35)
         if region == "corridor" and player.flags.get("left_lab", False) and not player.flags.get("heard_lecture", False):
             player.flags["heard_lecture"] = True
-            self.audio.play_loop("lecture_loop", volume=0.35)
-            self.set_message("远处有老师讲课的声音。这个时间怎么会有课？", 4.0)
+            self.set_message("走廊也安静了。没有服务器声，只有我的脚步声。", 4.0)
         if region == "classroom" and not player.flags.get("entered_classroom", False):
             player.flags["entered_classroom"] = True
             player.sanity = max(0.0, player.sanity - 5.0)
-            self.audio.play_loop("lecture_loop", volume=0.58)
-            self.set_message("教室里没有人，但讲课声确实在这里。", 4.0)
-        if region == "exit" and self.is_floor_power_restored() and player.has_item("access_card"):
+            self.set_message("这里闷得像蒸笼。手电电量还在往下掉。", 4.0)
+        if region == "exit" and self.is_floor_power_restored() and player.has_item("maintenance_pass"):
             self.audio.play("knock", volume=0.5, cooldown=5.0)
 
     def set_message(self, text: str, duration: float = 3.0) -> None:

@@ -74,7 +74,7 @@ FIXED_OBJECT_STYLES = {
         "placement_height": 0.0,
     },
 }
-WALL_FACING_OBJECT_IDS = {"blackboard", "elevator"}
+WALL_FACING_OBJECT_IDS = {"blackboard", "elevator", "exit_lock", "switch_box", "whiteboard"}
 WALL_FACING_ROTATIONS = (
     (0, -1, 0),
     (1, 0, 270),
