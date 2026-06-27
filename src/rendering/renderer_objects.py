@@ -42,11 +42,131 @@ from src.systems.mosquito_system import (
 
 
 class RendererObjectMixin:
+    def _draw_wall_decals(
+        self,
+        player,
+        elapsed: float,
+        horizon: int,
+        depth_buffer: list[float],
+        wall_hits: list[tuple[int, int, int, float, float, float, int, tuple[int, int], float]],
+    ) -> None:
+        decals = [
+            decal
+            for anchor, obj in self.game_map.objects.items()
+            if anchor not in self.game_map.picked_objects
+            and obj.object_id == "blackboard"
+            for decal in [self._blackboard_wall_decal(anchor, obj)]
+            if decal is not None
+        ]
+        if not decals:
+            return
+
+        for _ray, screen_x, column_width, distance, hit_x, hit_y, side, cell, ray_angle in wall_hits:
+            for decal in decals:
+                u = self._wall_decal_u(decal, cell, hit_x, hit_y)
+                if u is None:
+                    continue
+                self._draw_wall_decal_column(
+                    decal,
+                    u,
+                    screen_x,
+                    column_width,
+                    distance,
+                    ray_angle,
+                    player,
+                    elapsed,
+                    horizon,
+                    side,
+                )
+                break
+
+    def _blackboard_wall_decal(self, anchor: tuple[int, int], obj) -> dict | None:
+        rotation = obj.rotation % 360
+        x, y = anchor
+        length = max(0.05, obj.length)
+        bottom_z = obj.placement_height * VERTICAL_UNITS_PER_TILE
+        top_z = bottom_z + self._object_height_units(obj)
+        if top_z <= bottom_z:
+            return None
+
+        texture = self._object_face_texture(obj.asset_id or obj.object_id, "front")
+        if rotation == 0:
+            return {"axis": "x", "wall_cell_y": y - 1, "fixed": float(y), "start": float(x), "length": length, "reverse": False, "texture": texture, "bottom_z": bottom_z, "top_z": top_z}
+        if rotation == 180:
+            return {"axis": "x", "wall_cell_y": y + 1, "fixed": float(y + 1), "start": float(x), "length": length, "reverse": True, "texture": texture, "bottom_z": bottom_z, "top_z": top_z}
+        if rotation == 90:
+            return {"axis": "y", "wall_cell_x": x - 1, "fixed": float(x), "start": float(y), "length": length, "reverse": False, "texture": texture, "bottom_z": bottom_z, "top_z": top_z}
+        if rotation == 270:
+            return {"axis": "y", "wall_cell_x": x + 1, "fixed": float(x + 1), "start": float(y), "length": length, "reverse": True, "texture": texture, "bottom_z": bottom_z, "top_z": top_z}
+        return None
+
+    def _wall_decal_u(self, decal: dict, cell: tuple[int, int], hit_x: float, hit_y: float) -> float | None:
+        if decal["axis"] == "x":
+            if cell[1] != decal["wall_cell_y"]:
+                return None
+            if abs(hit_y - decal["fixed"]) > 0.015:
+                return None
+            local = hit_x - decal["start"]
+        else:
+            if cell[0] != decal["wall_cell_x"]:
+                return None
+            if abs(hit_x - decal["fixed"]) > 0.015:
+                return None
+            local = hit_y - decal["start"]
+
+        if local < 0.0 or local > decal["length"]:
+            return None
+        u = local / max(0.001, decal["length"])
+        if decal["reverse"]:
+            u = 1.0 - u
+        return max(0.0, min(0.999, u))
+
+    def _draw_wall_decal_column(
+        self,
+        decal: dict,
+        u: float,
+        screen_x: int,
+        column_width: int,
+        distance: float,
+        ray_angle: float,
+        player,
+        elapsed: float,
+        horizon: int,
+        side: int,
+    ) -> None:
+        texture = decal["texture"]
+        texture_width, texture_height = texture.get_size()
+        if texture_width <= 0 or texture_height <= 0:
+            return
+
+        top_y = horizon - VERTICAL_PROJECTION * (decal["top_z"] - CAMERA_HEIGHT_UNITS) / max(RAY_NEAR_CLIP, distance)
+        bottom_y = horizon - VERTICAL_PROJECTION * (decal["bottom_z"] - CAMERA_HEIGHT_UNITS) / max(RAY_NEAR_CLIP, distance)
+        slice_info = self._visible_wall_slice(top_y, bottom_y, texture_height)
+        if slice_info is None:
+            return
+
+        visible_top, visible_height, source_y, source_height = slice_info
+        texture_x = max(0, min(texture_width - 1, int(u * texture_width)))
+        source = pygame.Rect(texture_x, source_y, 1, source_height)
+        column = texture.subsurface(source)
+        column = pygame.transform.scale(column, (column_width + 1, visible_height))
+        shade = self._shade_factor(distance, ray_angle, player, elapsed) * self._wall_side_light(side)
+        shade_value = max(0, min(255, int(255 * min(1.0, shade))))
+        if column.get_flags() & pygame.SRCALPHA:
+            column = column.convert_alpha()
+            column.fill((shade_value, shade_value, shade_value, 255), special_flags=pygame.BLEND_RGBA_MULT)
+        else:
+            column = column.convert()
+            column.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
+        self.screen.blit(column, (screen_x, visible_top))
+
     def _draw_objects(self, player, elapsed: float, horizon: int, depth_buffer: list[float]) -> None:
         drawables: list[tuple[float, str, tuple]] = []
         object_depth_buffer = depth_buffer[:]
         for anchor, obj in self.game_map.objects.items():
             if anchor in self.game_map.picked_objects:
+                continue
+            if obj.object_id == "blackboard":
                 continue
             x0, y0, x1, y1 = self.game_map.object_bounds(anchor, obj)
             bottom_z = obj.placement_height * VERTICAL_UNITS_PER_TILE

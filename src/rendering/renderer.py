@@ -102,6 +102,7 @@ class RaycastingRenderer(
         view_angle = self._player_view_angle(player)
         start_angle = view_angle - HALF_FOV
         depth_buffer = [MAX_DEPTH] * NUM_RAYS
+        wall_hits: list[tuple[int, int, int, float, float, float, int, tuple[int, int], float]] = []
 
         for ray in range(NUM_RAYS):
             ray_angle = start_angle + ray * DELTA_ANGLE
@@ -115,6 +116,8 @@ class RaycastingRenderer(
             x = int(ray * SCREEN_WIDTH / NUM_RAYS)
             next_x = int((ray + 1) * SCREEN_WIDTH / NUM_RAYS)
             column_width = max(1, next_x - x)
+            if tile in WALL_TILES:
+                wall_hits.append((ray, x, column_width, corrected, hit_x, hit_y, side, cell, ray_angle))
             texture = self.textures.for_tile(tile)
             if texture is not None:
                 self._draw_textured_wall(texture, x, column_width, top_y, bottom_y, hit_x, hit_y, tile, side, cell, texture_offset, corrected, ray_angle, player, elapsed)
@@ -125,6 +128,7 @@ class RaycastingRenderer(
                     color = self._shade_color(tile, corrected, ray_angle, player, elapsed, side)
                     pygame.draw.rect(self.screen, color, (x, visible_top, column_width + 1, visible_height))
 
+        self._draw_wall_decals(player, elapsed, horizon, depth_buffer, wall_hits)
         self._draw_objects(player, elapsed, horizon, depth_buffer)
         self._draw_dynamic_entities(player, elapsed, horizon, depth_buffer, dynamic_entities)
         self._draw_open_doors(player, elapsed, horizon, depth_buffer)
