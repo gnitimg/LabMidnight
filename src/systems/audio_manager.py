@@ -16,6 +16,8 @@ SOUND_FILES = {
     "cry": "cry_01.wav",
     "knock": "knock_door.wav",
     "door_open": "door_open.wav",
+    "elevator_move": "elevator_move.wav",
+    "elevator_arrive": "elevator_arrive.wav",
     "item_pick": "item_pick.wav",
     "power_restore": "power_restore.wav",
     "error": "error.wav",
@@ -100,4 +102,3 @@ class AudioManager:
         if key not in self.missing_reported:
             print(f"[audio warning] missing sound: {SOUND_FILES.get(key, key)}")
             self.missing_reported.add(key)
-
