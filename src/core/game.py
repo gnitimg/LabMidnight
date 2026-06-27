@@ -62,12 +62,14 @@ class Game(GameInputMixin, GameFloorMixin, GameRuntimeMixin):
         self.floor_transition_entry_kind = ""
         self.floor_transition_source_cell: tuple[int, int] | None = None
         self.floor_picked_objects: dict[int, set[tuple[int, int]]] = {}
+        self.mosquito_system = None
         self.new_game()
         self.set_mouse_capture(False)
 
     def new_game(self) -> None:
         self.current_floor = BUILDING_TOP_FLOOR
         self.floor_picked_objects = {}
+        self.mosquito_system = None
         self._load_current_floor_map()
         start_x, start_y = self.game_map.start_position
         self._clear_floor_transition()

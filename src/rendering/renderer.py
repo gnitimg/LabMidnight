@@ -95,7 +95,8 @@ class RaycastingRenderer(
         self.set_quality(next_quality)
         return next_quality
 
-    def render(self, player, elapsed: float) -> None:
+    def render(self, player, elapsed: float, dynamic_entities=None) -> None:
+        self._dynamic_health_bars = []
         horizon = self._horizon(player)
         self._draw_background(player, elapsed, horizon)
         view_angle = self._player_view_angle(player)
@@ -125,4 +126,5 @@ class RaycastingRenderer(
                     pygame.draw.rect(self.screen, color, (x, visible_top, column_width + 1, visible_height))
 
         self._draw_objects(player, elapsed, horizon, depth_buffer)
+        self._draw_dynamic_entities(player, elapsed, horizon, depth_buffer, dynamic_entities)
         self._draw_open_doors(player, elapsed, horizon, depth_buffer)

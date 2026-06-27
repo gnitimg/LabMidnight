@@ -124,6 +124,8 @@ class GameInputMixin:
             return
         if self.state == STATE_PLAYING:
             if button == 1:
+                if self.mosquito_system.handle_mouse_attack(self, pos):
+                    return
                 self.set_message(self.interaction.interact(self), 4.0)
             elif button == 3:
                 self.toggle_flashlight()
@@ -211,5 +213,4 @@ class GameInputMixin:
         self.player.flashlight_on = not self.player.flashlight_on
         state = "打开" if self.player.flashlight_on else "关闭"
         self.set_message(f"手电已{state}。", 1.6)
-
 

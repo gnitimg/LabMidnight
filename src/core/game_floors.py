@@ -9,6 +9,7 @@ from src.settings import (
     STATE_PLAYING,
 )
 from src.systems.interaction import InteractionSystem
+from src.systems.mosquito_system import MosquitoSystem
 
 
 class GameFloorMixin:
@@ -16,6 +17,10 @@ class GameFloorMixin:
         self._sync_current_floor_power_flag()
         self.renderer = RaycastingRenderer(self.screen, self.game_map)
         self.interaction = InteractionSystem(self.game_map)
+        if not hasattr(self, "mosquito_system") or self.mosquito_system is None:
+            self.mosquito_system = MosquitoSystem(self.game_map, self.audio)
+        else:
+            self.mosquito_system.reset_for_floor(self.game_map, self.current_floor)
 
     def _save_current_floor_map_state(self) -> None:
         if hasattr(self, "game_map"):

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
+import time
 
 import pygame
 
@@ -110,7 +112,22 @@ class UI:
 
     def draw_hud(self, surface: pygame.Surface, player, message: str, prompt: str, floor: int = 4) -> None:
         self._draw_bar(surface, 18, 16, "HP", player.hp, 100, (91, 153, 112))
-        self._draw_bar(surface, 18, 44, "SAN", player.sanity, 100, (92, 143, 190))
+        now = time.monotonic()
+        san_shake = 0
+        if now < getattr(player, "sanity_shake_until", 0.0):
+            san_shake = int(math.sin(now * 95.0) * 4)
+        san_flash = max(0.0, min(1.0, (getattr(player, "sanity_damage_flash_until", 0.0) - now) / 0.7))
+        self._draw_bar(
+            surface,
+            18 + san_shake,
+            44,
+            "SAN",
+            player.sanity,
+            100,
+            (92, 143, 190),
+            previous_value=getattr(player, "sanity_damage_from", player.sanity),
+            damage_flash=san_flash,
+        )
         self._draw_bar(surface, 18, 72, "电量", player.flashlight_power, 100, (216, 184, 92))
 
         flashlight = "开" if player.flashlight_on and player.flashlight_power > 0 else "关"
@@ -127,13 +144,31 @@ class UI:
         elif message:
             self._draw_center_panel(surface, message, SCREEN_HEIGHT - 96, COLOR_TEXT)
 
-    def _draw_bar(self, surface: pygame.Surface, x: int, y: int, label: str, value: float, maximum: float, color: tuple[int, int, int]) -> None:
+    def _draw_bar(
+        self,
+        surface: pygame.Surface,
+        x: int,
+        y: int,
+        label: str,
+        value: float,
+        maximum: float,
+        color: tuple[int, int, int],
+        *,
+        previous_value: float | None = None,
+        damage_flash: float = 0.0,
+    ) -> None:
         width, height = 180, 16
         self.draw_text(surface, label, (x, y - 2), 17, COLOR_TEXT, bold=True)
         back_rect = pygame.Rect(x + 54, y, width, height)
         pygame.draw.rect(surface, (23, 28, 28), back_rect)
         fill_width = int(width * max(0.0, min(1.0, value / maximum)))
         pygame.draw.rect(surface, color, (x + 54, y, fill_width, height))
+        if previous_value is not None and damage_flash > 0.0:
+            previous_width = int(width * max(0.0, min(1.0, previous_value / maximum)))
+            if previous_width > fill_width:
+                flash = pygame.Surface((previous_width - fill_width, height), pygame.SRCALPHA)
+                flash.fill((226, 54, 47, int(190 * damage_flash)))
+                surface.blit(flash, (x + 54 + fill_width, y))
         pygame.draw.rect(surface, COLOR_PANEL_EDGE, back_rect, 1)
 
     def _draw_center_panel(self, surface: pygame.Surface, text: str, y: int, color: tuple[int, int, int]) -> None:

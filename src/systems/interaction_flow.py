@@ -34,6 +34,11 @@ class InteractionFlowMixin:
         x, y = cell
         role = self.game_map.door_role_at(x, y)
 
+        if self.game_map.is_open_door(x, y):
+            self.game_map.close_door(x, y)
+            game.audio.play("door_open", volume=0.7, cooldown=0.15)
+            return "你把门推回去了。"
+
         if tile == TILE_GUARD_DOOR:
             if game.current_floor == 3 and not player.flags.get("found_3f_security_code", False):
                 game.audio.play("error")
@@ -265,4 +270,3 @@ class InteractionFlowMixin:
     def _is_stairwell_exit(self, cell: tuple[int, int]) -> bool:
         x, _y = cell
         return x > self.game_map.width * 0.5
-

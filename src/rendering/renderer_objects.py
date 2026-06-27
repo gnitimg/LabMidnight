@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
+import time
 
 import pygame
 
@@ -20,7 +22,9 @@ from src.resources.asset_manager import TEXTURE_ELEVATOR
 from src.settings import (
     CAMERA_HEIGHT_UNITS,
     CEILING_HEIGHT_UNITS,
+    DISTANCE_TO_PROJECTION,
     DOOR_PANEL_NEAR_CLIP,
+    HALF_FOV,
     HALF_WIDTH,
     NUM_RAYS,
     RAY_NEAR_CLIP,
@@ -29,6 +33,11 @@ from src.settings import (
     TILE_WALL,
     VERTICAL_PROJECTION,
     VERTICAL_UNITS_PER_TILE,
+)
+from src.systems.mosquito_system import (
+    MOSQUITO_HIT_RADIUS_SCREEN,
+    MOSQUITO_HP,
+    MOSQUITO_VISIBLE_DISTANCE,
 )
 
 
@@ -419,3 +428,210 @@ class RendererObjectMixin:
             self.screen.blit(column, (screen_x, visible_top))
             if object_depth_buffer is not None:
                 object_depth_buffer[ray_index] = min(object_depth_buffer[ray_index], distance)
+
+    def _draw_dynamic_entities(
+        self,
+        player,
+        elapsed: float,
+        horizon: int,
+        depth_buffer: list[float],
+        dynamic_entities: list[dict] | None,
+    ) -> None:
+        if not dynamic_entities:
+            return
+
+        drawables: list[tuple[float, dict]] = []
+        for entity in dynamic_entities:
+            ref = entity.get("ref")
+            if ref is not None:
+                ref.visible = False
+                ref.screen_rect = None
+            if entity.get("kind") != "mosquito":
+                continue
+            dx = float(entity.get("x", 0.0)) - player.x
+            dy = float(entity.get("y", 0.0)) - player.y
+            distance = math.hypot(dx, dy)
+            drawables.append((distance, entity))
+
+        for _distance, entity in sorted(drawables, key=lambda item: item[0], reverse=True):
+            self._draw_mosquito_entity(player, elapsed, horizon, depth_buffer, entity)
+
+    def _draw_mosquito_entity(self, player, elapsed: float, horizon: int, depth_buffer: list[float], entity: dict) -> None:
+        ref = entity.get("ref")
+        projection = self._project_mosquito_point(
+            float(entity.get("x", 0.0)),
+            float(entity.get("y", 0.0)),
+            player,
+            horizon,
+            depth_buffer,
+            elapsed,
+            getattr(ref, "mosquito_id", 0),
+        )
+        if projection is None:
+            return
+
+        screen_x, screen_y, screen_size, distance, world_angle = projection
+        visual_rect = pygame.Rect(0, 0, screen_size, screen_size)
+        visual_rect.center = (int(screen_x), int(screen_y))
+        hit_radius = max(MOSQUITO_HIT_RADIUS_SCREEN, screen_size // 2)
+        hit_rect = pygame.Rect(0, 0, hit_radius * 2, hit_radius * 2)
+        hit_rect.center = visual_rect.center
+
+        if ref is not None:
+            ref.visible = True
+            ref.screen_rect = hit_rect
+            ref.distance_to_player = distance
+            ref.angle_to_player = world_angle
+
+        self._draw_mosquito_trail(player, horizon, depth_buffer, entity, elapsed, visual_rect.center)
+
+        glow_size = max(screen_size + 8, int(screen_size * 1.35))
+        glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow, (110, 230, 195, 36), glow.get_rect())
+        self.screen.blit(glow, glow.get_rect(center=visual_rect.center))
+
+        sprite = pygame.transform.smoothscale(self._mosquito_sprite(), visual_rect.size).convert_alpha()
+        shade = max(0.34, min(1.18, self._shade_factor(distance, world_angle, player, elapsed) + 0.18))
+        shade_value = max(0, min(255, int(255 * min(1.0, shade))))
+        sprite.fill((shade_value, shade_value, shade_value, 255), special_flags=pygame.BLEND_RGBA_MULT)
+        if shade > 1.0:
+            boost = max(0, min(50, int((shade - 1.0) * 85)))
+            sprite.fill((boost, boost, boost, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+        hit_flash = float(entity.get("hit_flash", 0.0) or 0.0)
+        if time.monotonic() - hit_flash <= 0.16:
+            sprite.fill((120, 20, 20, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+        self.screen.blit(sprite, visual_rect)
+        self._queue_mosquito_health_bar(visual_rect, float(entity.get("hp", MOSQUITO_HP)), float(entity.get("max_hp", MOSQUITO_HP)))
+
+    def _project_mosquito_point(
+        self,
+        x: float,
+        y: float,
+        player,
+        horizon: int,
+        depth_buffer: list[float],
+        elapsed: float,
+        mosquito_id: int,
+    ) -> tuple[float, float, int, float, float] | None:
+        dx = x - player.x
+        dy = y - player.y
+        distance = math.hypot(dx, dy)
+        if distance > MOSQUITO_VISIBLE_DISTANCE:
+            return None
+
+        world_angle = math.atan2(dy, dx)
+        relative_angle = (world_angle - self._player_view_angle(player) + math.pi) % math.tau - math.pi
+        if abs(relative_angle) > HALF_FOV + 0.15:
+            return None
+
+        forward_depth = distance * math.cos(relative_angle)
+        if forward_depth <= RAY_NEAR_CLIP:
+            return None
+
+        screen_x = HALF_WIDTH + math.tan(relative_angle) * DISTANCE_TO_PROJECTION
+        if screen_x < -96 or screen_x > SCREEN_WIDTH + 96:
+            return None
+
+        ray_index = max(0, min(NUM_RAYS - 1, int(screen_x / SCREEN_WIDTH * NUM_RAYS)))
+        left = max(0, ray_index - 2)
+        right = min(NUM_RAYS, ray_index + 3)
+        near_depth = min(depth_buffer[left:right]) if right > left else depth_buffer[ray_index]
+        if distance > near_depth + 0.25:
+            return None
+
+        screen_size = max(8, min(96, int(220 / max(distance, 0.35))))
+        bob = int(math.sin(elapsed * 9.0 + mosquito_id) * 12)
+        screen_y = horizon - screen_size // 2 + bob
+        return screen_x, screen_y, screen_size, distance, world_angle
+
+    def _draw_mosquito_trail(
+        self,
+        player,
+        horizon: int,
+        depth_buffer: list[float],
+        entity: dict,
+        elapsed: float,
+        current_center: tuple[int, int],
+    ) -> None:
+        trail = list(entity.get("trail") or [])
+        if len(trail) <= 1:
+            return
+        ref = entity.get("ref")
+        mosquito_id = getattr(ref, "mosquito_id", 0)
+        points: list[tuple[int, int]] = []
+        for index, (x, y, age) in enumerate(trail[-6:]):
+            projection = self._project_mosquito_point(x, y, player, horizon, depth_buffer, elapsed - max(0.0, trail[-1][2] - age), mosquito_id)
+            if projection is None:
+                continue
+            screen_x, screen_y, size, _distance, _angle = projection
+            points.append((int(screen_x), int(screen_y)))
+            alpha = max(18, min(90, 16 + index * 13))
+            radius = max(2, min(7, size // 8))
+            dot = pygame.Surface((radius * 2 + 2, radius * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(dot, (116, 221, 190, alpha), (radius + 1, radius + 1), radius)
+            self.screen.blit(dot, dot.get_rect(center=(int(screen_x), int(screen_y))))
+
+        if points:
+            points.append(current_center)
+            line_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            pygame.draw.lines(line_surface, (105, 220, 190, 36), False, points, 1)
+            self.screen.blit(line_surface, (0, 0))
+
+    def _draw_mosquito_health_bar(self, visual_rect: pygame.Rect, hp: float, max_hp: float) -> None:
+        max_hp = max(1.0, max_hp)
+        ratio = max(0.0, min(1.0, hp / max_hp))
+        width = max(22, min(58, visual_rect.width + 8))
+        height = 4
+        x = visual_rect.centerx - width // 2
+        y = max(4, visual_rect.top - 9)
+        back = pygame.Rect(x, y, width, height)
+        pygame.draw.rect(self.screen, (54, 10, 12), back)
+        pygame.draw.rect(self.screen, (235, 48, 45), (x, y, int(width * ratio), height))
+        pygame.draw.rect(self.screen, (245, 216, 206), back, 1)
+
+    def _queue_mosquito_health_bar(self, visual_rect: pygame.Rect, hp: float, max_hp: float) -> None:
+        bars = getattr(self, "_dynamic_health_bars", None)
+        if bars is None:
+            return
+        bars.append((visual_rect.copy(), hp, max_hp))
+
+    def draw_dynamic_entity_overlays(self) -> None:
+        for visual_rect, hp, max_hp in getattr(self, "_dynamic_health_bars", []):
+            self._draw_mosquito_health_bar(visual_rect, hp, max_hp)
+
+    def _mosquito_sprite(self) -> pygame.Surface:
+        cached = getattr(self, "_mosquito_sprite_cache", None)
+        if cached is not None:
+            return cached
+
+        path = Path("assets/sprites/mosquito.png")
+        if path.exists():
+            try:
+                cached = pygame.image.load(str(path)).convert_alpha()
+                self._mosquito_sprite_cache = cached
+                return cached
+            except (pygame.error, OSError) as exc:
+                if not getattr(self, "_mosquito_sprite_warning_shown", False):
+                    print(f"[asset warning] failed to load {path}: {exc}")
+                    self._mosquito_sprite_warning_shown = True
+
+        cached = self._fallback_mosquito_sprite()
+        self._mosquito_sprite_cache = cached
+        return cached
+
+    def _fallback_mosquito_sprite(self) -> pygame.Surface:
+        surface = pygame.Surface((64, 64), pygame.SRCALPHA)
+        pygame.draw.ellipse(surface, (126, 210, 190, 68), (7, 16, 23, 17))
+        pygame.draw.ellipse(surface, (126, 210, 190, 68), (34, 16, 23, 17))
+        pygame.draw.ellipse(surface, (18, 23, 22, 255), (25, 18, 14, 28))
+        pygame.draw.ellipse(surface, (73, 88, 75, 255), (28, 11, 8, 10))
+        pygame.draw.line(surface, (151, 235, 204, 220), (32, 14), (32, 47), 2)
+        pygame.draw.line(surface, (25, 28, 26, 230), (29, 31), (13, 43), 2)
+        pygame.draw.line(surface, (25, 28, 26, 230), (35, 31), (51, 43), 2)
+        pygame.draw.line(surface, (25, 28, 26, 210), (29, 38), (16, 54), 1)
+        pygame.draw.line(surface, (25, 28, 26, 210), (35, 38), (48, 54), 1)
+        pygame.draw.circle(surface, (151, 235, 204, 180), (32, 26), 17, 1)
+        pygame.draw.circle(surface, (226, 237, 210, 180), (31, 15), 2)
+        return surface
