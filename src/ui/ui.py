@@ -9,6 +9,7 @@ import time
 import pygame
 
 from src.ui.ending import FAILURE_TITLE, SUCCESS_TITLE
+from src.ui.ending_video import EndingVideoPlayer
 from src.settings import (
     COLOR_DANGER,
     COLOR_MUTED,
@@ -58,6 +59,7 @@ ITEM_DESCRIPTIONS = {
 class UI:
     def __init__(self) -> None:
         self.font_cache: dict[tuple[int, bool], pygame.font.Font] = {}
+        self.ending_video = EndingVideoPlayer()
 
     def font(self, size: int, bold: bool = False) -> pygame.font.Font:
         key = (size, bold)
@@ -264,10 +266,39 @@ class UI:
             y += 66
 
     def draw_ending(self, surface: pygame.Surface, success: bool) -> None:
+        if self.ending_video.draw(surface, success):
+            if success:
+                self._draw_ending_video_hint(surface)
+            elif self.ending_video.accepts_input(False):
+                self._draw_failure_retry_hint(surface)
+            return
         if success:
             self._draw_success_scene(surface)
         else:
             self._draw_failure_scene(surface)
+
+    def reset_ending_video(self, success: bool) -> None:
+        self.ending_video.reset(success)
+
+    def ending_accepts_input(self, success: bool) -> bool:
+        return self.ending_video.accepts_input(success)
+
+    def _draw_ending_video_hint(self, surface: pygame.Surface) -> None:
+        text = "Enter / Space 返回    R 重新开始"
+        rendered = self.font(18, False).render(text, True, (212, 218, 208))
+        rendered.set_alpha(110)
+        rect = rendered.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 28))
+        shadow = pygame.Surface((rect.width + 32, rect.height + 16), pygame.SRCALPHA)
+        shadow.fill((0, 0, 0, 70))
+        surface.blit(shadow, shadow.get_rect(center=rect.center))
+        surface.blit(rendered, rect)
+
+    def _draw_failure_retry_hint(self, surface: pygame.Surface) -> None:
+        text = "R 重试    Enter / Esc 退出"
+        rendered = self.font(22, False).render(text, True, (218, 222, 216))
+        rendered.set_alpha(210)
+        rect = rendered.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 56))
+        surface.blit(rendered, rect)
 
     def _draw_success_scene(self, surface: pygame.Surface) -> None:
         surface.fill((214, 221, 210))

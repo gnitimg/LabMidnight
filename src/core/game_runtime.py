@@ -102,12 +102,14 @@ class GameRuntimeMixin:
     def enter_success(self) -> None:
         self.player.flags["success_ending"] = True
         self.audio.stop_all()
+        self.ui.reset_ending_video(True)
         self.set_state(STATE_SUCCESS)
 
     def enter_failure(self) -> None:
         self.player.flags["failure_ending"] = True
         self.audio.stop_all()
         self.audio.play("sanity_low", volume=0.8, cooldown=0.0)
+        self.ui.reset_ending_video(False)
         self.set_state(STATE_FAILURE)
 
     def draw(self) -> None:

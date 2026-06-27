@@ -66,6 +66,8 @@ class GameInputMixin:
             if key in (pygame.K_ESCAPE, pygame.K_b, pygame.K_i):
                 self.set_state(STATE_PLAYING)
             return
+        if self.state == STATE_FAILURE and not self.ui.ending_accepts_input(False):
+            return
         if self.state in (STATE_SUCCESS, STATE_FAILURE):
             if key in (pygame.K_RETURN, pygame.K_SPACE):
                 self.audio.stop_all()
@@ -213,4 +215,3 @@ class GameInputMixin:
         self.player.flashlight_on = not self.player.flashlight_on
         state = "打开" if self.player.flashlight_on else "关闭"
         self.set_message(f"手电已{state}。", 1.6)
-

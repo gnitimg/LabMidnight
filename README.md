@@ -1,46 +1,30 @@
 # LabMidnight
 
-> 加班累了是吗 —— 基于 Python + Pygame 的第一人称伪 3D 恐怖解谜 RPG MVP
+> 加班累了是吗 —— 基于 Python + Pygame 的第一人称伪 3D 恐怖解谜 RPG Demo
 
 ## 项目简介
 
-`LabMidnight（加班累了是吗）` 是一个 PythonGame 课程 Demo。玩家在凌晨两点的实验楼中醒来，发现整栋楼突然停电。走廊陷入黑暗，手机信号异常，一间本应空无一人的教室里传来老师讲课声。
+`LabMidnight（加班累了是吗）` 是一个 PythonGame 课程项目。玩家在凌晨两点的实验楼中醒来，发现整栋楼突然停电。走廊陷入黑暗，手机信号异常，一间本应空无一人的教室里传来老师讲课声。
 
-玩家需要依靠手电筒探索实验楼四层局部区域，收集钥匙、纸条、保险丝、门禁卡等道具，破解实验室、异常教室、配电室和出口门禁组成的轻量谜题流程，在理智值耗尽前离开实验楼。
+玩家需要依靠手电筒探索 1F-4F 实验楼，收集手电、钥匙、纸条、保险丝、门禁卡等道具，破解异常教室、配电室、机房和安全出口组成的轻量谜题流程，在 SAN 耗尽前离开实验楼。
 
-## 已实现内容
+项目保持 `Pygame + 2D 网格地图 + Raycasting 伪 3D` 技术路线，不使用真 3D 引擎，不引入网络、数据库或大型外部服务。
 
-| 模块 | 功能 |
+## 当前实现
+
+| 模块 | 当前能力 |
 |---|---|
-| **核心循环** | Pygame 窗口、主菜单、操作说明、暂停、背包、成功结局、失败结局、楼层切换确认 |
-| **渲染** | Raycasting 第一人称伪 3D 渲染、NumPy 加速地面透视、3 档画质切换（性能/平衡/清晰） |
-| **输入** | W/S 前进后退、A/D 左右移动、鼠标移动控制视角、鼠标右键开关手电筒 |
-| **碰撞** | 墙壁碰撞、门碰撞、物体碰撞、不能穿墙或穿过未解锁门 |
-| **交互** | Space/鼠标左键交互、开门、拾取、查看线索、门禁检查 |
-| **手电筒** | 手电电量管理、低电量闪烁变暗、黑暗中理智值下降 |
-| **背包系统** | 道具收集与使用、剧情 flags 管理 |
-| **音效** | AudioManager 资源缺失容错、环境音循环、空间声像 |
-| **地图系统** | 4 层地图加载、楼层切换持久化、门组管理、物体碰撞检测 |
-| **物体系统** | 自定义物体资产、方向贴图、碰撞体积、元素绑定（剧情/拾取/触发/装饰） |
-| **蚊虫系统** | 动态蚊子实体、BFS 寻路、状态机（游荡/追踪/攻击/死亡）、鼠标点击击杀、SAN 作为攻击力 |
-| **地图编辑器** | 可视化编辑 4 层地图、房间/门/物体/窗户放置、撤销重做、多选移动 |
-
-## 操作方式
-
-| 输入 | 功能 |
-|---|---|
-| W | 前进 |
-| S | 后退 |
-| A / D | 向左 / 向右移动 |
-| 鼠标移动 | 移动视角（上下左右） |
-| Space | 交互、开门、拾取、查看线索 |
-| 鼠标左键 | 交互或确认；点击蚊子可造成伤害 |
-| 鼠标右键 | 开关手电筒 |
-| B / I | 打开或关闭背包 |
-| F2 | 切换渲染质量：性能 / 平衡 / 清晰 |
-| ESC | 暂停或返回 |
-
-不使用 F 键交互；Space 不用于跳跃。
+| 核心循环 | 主菜单、操作说明、暂停、背包、楼层切换确认、成功/失败结局 |
+| 渲染 | 第一人称 Raycasting、地面/天花板透视、贴图墙面、门面板、深度缓冲、3 档画质 |
+| 输入 | W/S 前后移动、A/D 左右平移、鼠标视角、Space/左键交互、右键手电、F2 画质切换 |
+| 地图 | 1F-4F 外部地图文件、门组、楼层切换、出生点和出口点管理 |
+| 门与碰撞 | 墙体、窗户、关闭门、物体碰撞；已打开的门可再次点击关闭 |
+| 主线交互 | 实验桌、黑板/讲台、工具柜、配电箱、机房终端、安全出口、一楼出口 |
+| 状态 | HP、SAN、手电电量、背包、剧情 flag、SAN 受击抖动和红色减少动画 |
+| 音效 | Pygame mixer、环境循环音、一次性反馈音、资源缺失 warning fallback |
+| 动态蚊虫 | 运行时实体、潜伏点生成、BFS 寻路、主动追咬、空间嗡嗡声、屏幕点击命中 |
+| 结局视频 | `assets/videos/successful.mp4` 与 `assets/videos/defeat.mp4` 全屏沉浸式播放 |
+| 地图编辑器 | 可视化编辑楼层、房间、门、窗户、物体、出生点，支持撤销/重做 |
 
 ## 运行方式
 
@@ -49,13 +33,97 @@ pip install -r requirements.txt
 python main.py
 ```
 
-渲染默认使用 NumPy 加速地面透视采样。入口会设置 SDL/独显相关提示变量，但 Pygame 不能强制选择 NVIDIA 独显；如果笔记本仍使用核显，可在 Windows"设置 > 系统 > 显示 > 图形"中把 `python.exe` 设为高性能。
+开发阶段地图编辑器：
 
-画质可以在游戏中按 `F2` 切换。性能档更接近 60 FPS；清晰档纹理更锐利但更吃 CPU。
+```bash
+python map_editor.py
+```
 
-### 音效资源
+基础自检：
 
-如果没有音效文件，游戏仍可运行。音效可按以下名称放入 `assets/sounds/`：
+```bash
+python -m compileall .
+```
+
+## 操作方式
+
+| 输入 | 功能 |
+|---|---|
+| W / S | 前进 / 后退 |
+| A / D | 左右平移 |
+| 鼠标移动 | 控制视角 |
+| Space | 交互、开门、关门、拾取、查看线索 |
+| 鼠标左键 | 优先攻击可见蚊子；未命中蚊子时执行普通交互 |
+| 鼠标右键 | 开关手电筒 |
+| B / I | 打开或关闭背包 |
+| F2 | 切换渲染质量：性能 / 平衡 / 清晰 |
+| ESC | 暂停或返回 |
+
+不使用 F 键交互；Space 不用于跳跃，也不攻击蚊子。
+
+## 主线流程
+
+最短通关路线：
+
+```text
+开始游戏
+检查实验桌，获得 flashlight 和 lab_key
+打开实验室门，进入走廊
+进入异常教室，检查黑板或讲台，获得 note_a 并设置 got_blackboard_clue
+进入工具柜区域，获得 fuse
+打开配电室门，使用 fuse 恢复 power_restored
+进入机房终端，获得 access_card
+通过 2F-4F 安全出口逐层下楼
+到达 1F 出口，触发成功结局
+```
+
+失败路线：SAN 因黑暗、低电量、剧情事件或蚊虫叮咬降为 0 后进入失败结局。
+
+## 动态蚊虫系统
+
+蚊子不是地图文件里的静态贴图，而是运行时生成的动态干扰实体。核心代码位于 `src/systems/mosquito_system.py`。
+
+当前关键数值：
+
+| 常量 | 当前值 | 说明 |
+|---|---:|---|
+| `MOSQUITO_HP` | 150 | 每只蚊子生命值 |
+| `MOSQUITO_MAX_ACTIVE` | 10 | 同时存在上限 |
+| `MOSQUITO_MAX_PER_FLOOR` | 6 | 每层累计生成上限 |
+| `MOSQUITO_BASE_SPEED` | 1.65 | 基础速度 |
+| `MOSQUITO_ATTACK_RANGE` | 1.30 | 叮咬距离 |
+| `MOSQUITO_ATTACK_SAN_DAMAGE` | 5 | 每次叮咬扣除 SAN |
+| `MOSQUITO_ATTACK_COOLDOWN` | 1.6 | 叮咬冷却 |
+| `MOSQUITO_TARGET_LOST_DISTANCE` | 50.0 | 超出后放弃追踪 |
+
+玩家左键点击可见蚊子时，伤害等于点击瞬间的当前 SAN：
+
+```python
+damage = int(game.player.sanity)
+```
+
+攻击不消耗 SAN。SAN 越低，清除蚊子的效率越低。蚊子会从每层预生成的潜伏点激活；如果潜伏点不可达，则尝试在玩家附近可通行位置生成。蚊子寻路时会避开墙体和关闭门，已关闭的门会阻断追踪路线。
+
+渲染器会把蚊子作为 2.5D billboard 投影到屏幕中，使用 depth buffer 判断墙体/门遮挡；可见蚊子始终显示红色血条，并带亮边和短拖尾。嗡嗡声只选威胁最高的一只作为主声源，按距离衰减并按相对角度设置左右声道。
+
+详细设计见 [docs/mosquito_system_design.md](docs/mosquito_system_design.md)。
+
+## 结局视频
+
+结局视频由 `src/ui/ending_video.py` 管理，使用可选 OpenCV 解码 mp4 画面，再交给 Pygame 全屏绘制。缺少 OpenCV、缺少视频文件或解码失败时，游戏会 warning 一次并回退到原静态结局画面。
+
+| 文件 | 用途 | 当前行为 |
+|---|---|---|
+| `assets/videos/successful.mp4` | 成功结局 | 全屏沉浸式播放，可循环显示 |
+| `assets/videos/defeat.mp4` | 失败结局 | 眼前渐黑后播放一次，停最后一帧 4 秒，再全黑并显示重试/退出 |
+
+当前视频播放器只负责画面帧显示；结局音效仍建议通过 `AudioManager` 和 `assets/sounds/` 单独管理。
+
+## 资源文件
+
+### 音效
+
+音效文件放入 `assets/sounds/`。缺失时不会崩溃，只会输出 warning 并跳过播放。
 
 | 文件名 | 用途 |
 |---|---|
@@ -69,255 +137,126 @@ python main.py
 | `item_pick.wav` | 拾取反馈 |
 | `power_restore.wav` | 恢复供电反馈 |
 | `error.wav` | 错误反馈 |
-| `sanity_low.wav` | 低理智状态音 |
-| `elevator_move.wav` | 电梯运行音效 |
-| `elevator_arrive.wav` | 电梯到达音效 |
+| `sanity_low.wav` | 低理智音效 |
+| `elevator_move.wav` | 电梯运行 |
+| `elevator_arrive.wav` | 电梯到达 |
+| `mosquito_buzz.wav` | 蚊子空间嗡嗡声 |
+| `mosquito_hit.wav` | 蚊子被击中 |
+| `mosquito_die.wav` | 蚊子死亡 |
+| `mosquito_bite.wav` | 蚊子叮咬 |
 
-### 贴图资源
+### 贴图与图片
 
-贴图资源放入 `assets/textures/`，缺失时会使用默认纯色绘制。标准名称见 [assets/ASSET_NAMES.md](assets/ASSET_NAMES.md)：
+贴图放入 `assets/textures/`，物体资产放入 `assets/objects/`，精灵放入 `assets/sprites/`。缺失时使用默认绘制。
 
-| 文件名 | 用途 |
-|---|---|
-| `ceiling.png` | 天花板纹理 |
-| `floor.png` | 地面纹理 |
-| `wall.png` | 默认墙壁纹理 |
-| `window.png` | 窗户纹理 |
-| `door.png` | 门卫处门纹理（也是缺省门纹理） |
-| `door_lab.png` | 实验室门 / 机房门纹理 |
-| `door_classroom.png` | 教室门纹理 |
-| `door_power.png` | 配电室门纹理 |
-| `door_exit.png` | 出口门纹理 |
-| `elevator.png` | 电梯纹理 |
+可选蚊子贴图：
+
+```text
+assets/sprites/mosquito.png
+```
+
+缺少该文件时，渲染器会绘制程序生成的蚊子外观。
+
+### 视频
+
+```text
+assets/videos/successful.mp4
+assets/videos/defeat.mp4
+```
+
+视频文件不是必需资源。缺失时结局仍可进入，并回退到静态绘制。
 
 ## 地图编辑
 
-地图支持 1-4 层。编辑器会优先保存到 `data/floors/floor_1.txt` 到 `data/floors/floor_4.txt`；旧的 [data/map_layout.txt](data/map_layout.txt) 仍作为四层兼容入口。一个字符代表一块 `60cm x 60cm` 地砖。
+地图支持 1-4 层。编辑器优先保存到：
 
-### 地图符号
+```text
+data/floors/floor_1.txt
+data/floors/floor_2.txt
+data/floors/floor_3.txt
+data/floors/floor_4.txt
+```
+
+一个字符代表一块 `60cm x 60cm` 地砖。
 
 | 符号 | 含义 |
 |---|---|
 | `#` | 墙壁 |
 | `.` | 地面 |
 | `@` | 玩家出生点 |
-| `W` | 窗户（阻挡移动，使用窗户贴图渲染） |
+| `W` | 窗户 |
 | `L` | 实验室门 |
-| `M` | 机房门（使用实验室门贴图） |
+| `M` | 机房门 |
 | `C` | 教室门 |
 | `G` | 门卫处门 |
 | `P` | 配电室门 |
 | `E` | 出口门 |
-| `1`-`9` | 剧情物件（具体含义见编辑器 Objects 列表） |
+| `1`-`9` | 剧情物件 |
 
-## 最短通关路线
-
-```text
-开始游戏
-检查实验桌，获得手电筒和实验室钥匙
-打开实验室门，进入走廊
-进入异常教室，检查黑板或讲台
-获得配电室线索
-进入保安室，获得实验楼平面图和保险丝
-打开配电室门，使用保险丝恢复部分电力
-进入机房，获得门禁卡
-前往出口，使用门禁卡离开
-进入成功结局：回到寝室
-```
-
-失败路线：长时间处于黑暗、低电量拖延或理智值降为 0 后进入失败结局：组会还没结束。
+详细使用说明见 [src/maps/MAP_EDITOR_GUIDE.md](src/maps/MAP_EDITOR_GUIDE.md)。
 
 ## 文件结构
 
 ```text
 LabMidnight/
-├── main.py                              # 游戏入口
-├── map_editor.py                        # 地图编辑器入口
-├── src/
-│   ├── settings.py                      # 全局常量、Tile ID、颜色定义
-│   ├── core/
-│   │   ├── game.py                      # 主游戏循环、状态机、渲染调度
-│   │   ├── game_floors.py               # 楼层切换、地图加载、系统绑定
-│   │   ├── game_input.py                # 键盘/鼠标事件处理
-│   │   ├── game_runtime.py              # 帧更新、玩家状态、故事触发
-│   │   └── player.py                    # 玩家数据类（位置、背包、flags）
-│   ├── maps/
-│   │   ├── map_data.py                  # GameMap 主类（组合 Mixin）
-│   │   ├── game_map_build.py            # 地图构建（从文件解析 grid）
-│   │   ├── game_map_collision.py        # 碰撞检测（墙壁/门/物体）
-│   │   ├── game_map_doors.py            # 门状态管理（开/关/动画）
-│   │   ├── game_map_spawn.py            # 出生点计算（入口/出口）
-│   │   ├── map_objects.py               # MapObject 数据类、模板、元数据
-│   │   ├── map_paths.py                 # 地图文件路径、初始玩家配置
-│   │   ├── map_editor.py                # 地图编辑器主类（组合 Mixin）
-│   │   ├── map_editor_config.py         # 编辑器常量、颜色、字段定义
-│   │   ├── map_editor_models.py         # Room / ObjectPlacement 数据类
-│   │   ├── map_editor_state.py          # 编辑器可变状态（组合 Mixin）
-│   │   ├── map_editor_state_doors.py    # 编辑器门操作
-│   │   ├── map_editor_state_grid.py     # 编辑器 grid 重建
-│   │   ├── map_editor_state_load.py     # 编辑器加载/保存
-│   │   ├── map_editor_state_objects.py  # 编辑器物体操作
-│   │   ├── map_editor_editing.py        # 编辑器编辑逻辑
-│   │   ├── map_editor_events.py         # 编辑器事件处理
-│   │   ├── map_editor_history.py        # 编辑器撤销/重做
-│   │   ├── map_editor_selection.py      # 编辑器多选/框选
-│   │   ├── map_editor_viewport.py       # 编辑器视口/缩放/滚动
-│   │   ├── map_editor_draw_canvas.py    # 编辑器画布绘制
-│   │   ├── map_editor_draw_panel.py     # 编辑器右侧面板绘制
-│   │   └── MAP_EDITOR_GUIDE.md          # 编辑器使用指南
-│   ├── rendering/
-│   │   ├── renderer.py                  # RaycastingRenderer 主类（组合 Mixin）
-│   │   ├── renderer_config.py           # 渲染常量（遮挡、面板等）
-│   │   ├── renderer_raycast.py          # DDA 光线投射算法
-│   │   ├── renderer_doors.py            # 开门渲染
-│   │   ├── renderer_lighting.py         # 手电筒光束、暗度遮罩
-│   │   ├── renderer_objects.py          # 物体/蚊子投影、深度遮挡
-│   │   ├── renderer_planes.py           # 天花板/地面透视纹理渲染
-│   │   └── renderer_projection.py       # 视角投影（yaw/pitch/horizon）
-│   ├── resources/
-│   │   ├── asset_manager.py             # TextureStore 纹理加载与回退
-│   │   └── object_assets.py             # ObjectSpec 加载、物体贴图路径
-│   ├── systems/
-│   │   ├── audio_manager.py             # AudioManager 音效加载/播放/空间声像
-│   │   ├── interaction.py               # InteractionSystem 主类（组合 Mixin）
-│   │   ├── interaction_config.py        # 交互常量（过渡物体、填充等）
-│   │   ├── interaction_targeting.py     # 目标检测（射线检测门/物体）
-│   │   ├── interaction_flow.py          # 交互流程（门/物体/电梯/出口）
-│   │   ├── interaction_triggers.py      # 触发器（剧情/拾取/特殊事件）
-│   │   └── mosquito_system.py           # 蚊虫动态干扰实体系统
-│   └── ui/
-│       ├── ui.py                        # HUD、菜单、背包、楼层切换 UI
-│       └── ending.py                    # 结局标题文本
-├── assets/
-│   ├── textures/                        # 墙壁/地面/天花板/门贴图
-│   ├── objects/                         # 自定义物体文件夹（含 object.json）
-│   ├── sounds/                          # 音效文件
-│   ├── sprites/                         # 精灵图
-│   └── fonts/                           # 字体文件
-├── data/
-│   ├── floors/                          # floor_N.txt 和 floor_N_rooms.json
-│   ├── map_layout.txt                   # 旧版四层兼容入口
-│   ├── map_rooms.json                   # 旧版四层元数据兼容
-│   └── map_config.json                  # 全局初始玩家配置
+├── main.py
+├── map_editor.py
+├── README.md
 ├── requirements.txt
-└── README.md
+├── assets/
+│   ├── fonts/
+│   ├── objects/
+│   ├── sounds/
+│   ├── sprites/
+│   ├── textures/
+│   └── videos/
+│       ├── successful.mp4
+│       └── defeat.mp4
+├── data/
+│   └── floors/
+├── docs/
+│   └── mosquito_system_design.md
+└── src/
+    ├── core/
+    │   ├── game.py
+    │   ├── game_floors.py
+    │   ├── game_input.py
+    │   ├── game_runtime.py
+    │   └── player.py
+    ├── maps/
+    ├── rendering/
+    ├── resources/
+    ├── systems/
+    │   ├── audio_manager.py
+    │   ├── interaction.py
+    │   └── mosquito_system.py
+    └── ui/
+        ├── ending.py
+        ├── ending_video.py
+        └── ui.py
 ```
 
-## 架构说明
+## 验收检查
 
-### 模块化设计
-
-游戏采用 **Mixin 组合** 模式拆分复杂模块：
-
-| 主类 | 组合的 Mixin | 职责 |
-|---|---|---|
-| `Game` | `GameInputMixin` + `GameFloorMixin` + `GameRuntimeMixin` | 游戏主循环 |
-| `GameMap` | `GameMapBuildMixin` + `GameMapDoorMixin` + `GameMapSpawnMixin` + `GameMapCollisionMixin` | 地图数据 |
-| `RaycastingRenderer` | `RendererRaycastMixin` + `RendererDoorMixin` + `RendererLightingMixin` + `RendererObjectMixin` + `RendererPlaneMixin` + `RendererProjectionMixin` | 渲染管线 |
-| `InteractionSystem` | `InteractionTargetingMixin` + `InteractionFlowMixin` + `InteractionTriggerMixin` | 交互系统 |
-| `MapEditor` | `MapEditorHistoryMixin` + `MapEditorEditingMixin` + `MapEditorEventMixin` + `MapEditorSelectionMixin` + `MapEditorViewportMixin` + `MapEditorDrawCanvasMixin` + `MapEditorDrawPanelMixin` | 地图编辑器 |
-
-### 游戏状态
-
-| 状态 | 常量 | 说明 |
-|---|---|---|
-| `menu` | `STATE_MENU` | 主菜单 |
-| `playing` | `STATE_PLAYING` | 游戏进行中 |
-| `paused` | `STATE_PAUSED` | 暂停 |
-| `inventory` | `STATE_INVENTORY` | 背包界面 |
-| `floor_confirm` | `STATE_FLOOR_CONFIRM` | 楼层切换确认 |
-| `success` | `STATE_SUCCESS` | 成功结局 |
-| `failure` | `STATE_FAILURE` | 失败结局 |
-
-### 渲染管线
-
-1. **天花板/地面** — `RendererPlaneMixin._draw_background()` 透视纹理或纯色
-2. **墙壁** — `RendererRaycastMixin` DDA 光线投射
-3. **开门** — `RendererDoorMixin._draw_open_doors()` 从远到近绘制
-4. **物体** — `RendererObjectMixin` 投影到屏幕、深度遮挡、蚊子实体
-5. **光照** — `RendererLightingMixin._cut_flashlight_beam()` 手电筒光束
-
-### 蚊虫系统
-
-蚊子是运行时动态实体，状态机驱动：
-
-| 状态 | 触发条件 | 行为 |
-|---|---|---|
-| `IDLE` | 初始/重置 | 等待激活 |
-| `WANDER` | 距离 > 8 | 随机小范围飞行 |
-| `CHASE` | 0.75 < 距离 ≤ 8 | BFS 寻路追踪玩家 |
-| `ATTACK` | 距离 ≤ 1.30 | 扣除玩家 SAN |
-| `DEAD` | HP ≤ 0 | 移除实体 |
-
-玩家攻击蚊子的伤害 = 当前 SAN 值（不消耗 SAN）。
-
-## 开发者地图编辑器
-
-运行：
+建议每次合并前至少运行：
 
 ```bash
-python map_editor.py
+python -m compileall .
 ```
 
-编辑器只用于开发阶段，不会改变 `python main.py` 的游戏入口。
+可交互环境下再运行：
 
-### 编辑器工具
+```bash
+python main.py
+```
 
-| 工具 | 功能 |
-|---|---|
-| Select | 点击选择、拖拽移动、拖拽右下角调整大小、Ctrl+拖拽框选 |
-| Room | 拖拽生成矩形房间（最小 3×3） |
-| Wall | 绘制墙壁覆盖 `#` |
-| Window | 绘制窗户覆盖 `W`（阻挡移动，使用窗户贴图） |
-| Erase | 绘制地面覆盖 `.` |
-| Start | 放置玩家出生点 `@` |
-| Door | 选择门类型后拖到墙上放置 |
-| Object | 选择物体后点击放置 |
+重点手测：
 
-### 门类型
-
-| 符号 | 类型 | 说明 |
-|---|---|---|
-| `L` | 实验室门 | 使用 `door_lab.png` |
-| `M` | 机房门 | 使用实验室门贴图 |
-| `C` | 教室门 | 使用 `door_classroom.png` |
-| `G` | 门卫处门 | 使用 `door.png` |
-| `P` | 配电室门 | 使用 `door_power.png` |
-| `E` | 出口门 | 使用 `door_exit.png` |
-
-### 物体元素绑定
-
-选中物体后，右侧面板可配置：
-
-| 属性 | 说明 |
-|---|---|
-| Element Type | `story_required`（剧情必需）/ `pickup`（可拾取）/ `trigger`（触发器）/ `decoration`（装饰） |
-| Item | 拾取获得的道具 ID（如 `flashlight`、`fuse`、`access_card`） |
-| Flag | 交互设置的玩家 flag |
-| Prompt | 自定义交互提示文本 |
-| Message | 交互后显示的消息 |
-| Need Item | 需要的前置道具 |
-| Need Flag | 需要的前置 flag |
-| Random Drop | 随机掉落（配合 Count 使用） |
-| Remove after pickup | 拾取后隐藏物体 |
-
-### 快捷键
-
-| 快捷键 | 功能 |
-|---|---|
-| `Ctrl+S` | 保存当前楼层 |
-| `Ctrl+Z` | 撤销 |
-| `Ctrl+Shift+Z` | 重做 |
-| `Ctrl+L` | 从磁盘重新加载 |
-| `Delete` | 删除选中项 |
-| `1`-`9` | 切换当前物件编号 |
-| `Q` / `E` | 旋转物体（逆时针/顺时针） |
-| 鼠标滚轮 | 缩放画布 |
-
-详细使用说明见 [src/maps/MAP_EDITOR_GUIDE.md](src/maps/MAP_EDITOR_GUIDE.md)。
-
-### 游戏内楼层机制
-
-- 2-4 层的安全出口门打开后会黑屏弹出"下了楼，就回不来了哦"。
-- 选择"走吧"进入下一层，选择"等等"留在当前层。
-- 1-3 层下楼后的出生点会自动放在该层安全出口门前。
+1. 主菜单、操作说明、暂停、背包可用；
+2. W/S、A/D、鼠标视角、右键手电、F2 画质切换正常；
+3. 实验桌、黑板/讲台、工具柜、配电箱、机房终端、出口流程正常；
+4. 打开的门可再次关闭，关闭门仍阻挡玩家和蚊子；
+5. 蚊子会生成、追踪、绕路、显示血条、叮咬扣 SAN；
+6. 左键点击可见蚊子时伤害等于当前 SAN；
+7. 蚊子在墙或关闭门后不会明显穿墙显示；
+8. 成功/失败结局视频资源存在时正常播放，缺失时 fallback 不崩溃。
