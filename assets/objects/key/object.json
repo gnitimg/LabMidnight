@@ -1,0 +1,10 @@
+{
+  "name": "Key",
+  "length": 0.35,
+  "width": 0.2,
+  "height": 0.08,
+  "placement_height": 0.05,
+  "solid": false,
+  "prompt": "Press Space to inspect Key",
+  "description": "Key"
+}

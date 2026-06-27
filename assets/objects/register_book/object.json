@@ -1,0 +1,10 @@
+{
+  "name": "Register Book",
+  "length": 0.8,
+  "width": 0.55,
+  "height": 0.12,
+  "placement_height": 0.05,
+  "solid": false,
+  "prompt": "Press Space to inspect Register Book",
+  "description": "Register Book"
+}

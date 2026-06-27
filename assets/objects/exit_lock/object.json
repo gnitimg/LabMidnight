@@ -1,0 +1,10 @@
+{
+  "name": "Exit Lock",
+  "length": 0.6,
+  "width": 0.08,
+  "height": 0.6,
+  "placement_height": 1.1,
+  "solid": false,
+  "prompt": "Press Space to inspect Exit Lock",
+  "description": "Exit Lock"
+}

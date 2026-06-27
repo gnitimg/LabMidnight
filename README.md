@@ -80,7 +80,7 @@ door_exit.png
 
 ## 地图编辑
 
-地图在 [data/map_layout.txt](data/map_layout.txt) 中设计。一个字符代表一块 `60cm x 60cm` 地砖；游戏启动时会优先读取这个文件。
+地图支持 1-4 层。编辑器会优先保存到 `data/floors/floor_1.txt` 到 `data/floors/floor_4.txt`；旧的 [data/map_layout.txt](data/map_layout.txt) 仍作为四层兼容入口。一个字符代表一块 `60cm x 60cm` 地砖。
 
 常用符号：
 
@@ -155,4 +155,55 @@ python map_editor.py
 - 选择 `Door L/G/C/P/E/M` 后，把门拖到墙上释放；编辑器会吸附到最近的墙格，并把该墙格替换成门符号。
 - `M` 是机房门角色，使用实验室门贴图；门类型仍按实验室门、门卫处门、配电室门、出口门、教室门这五类资源管理。
 - `Start` 放置玩家出生点，`Obj 1-9` 放置剧情物件，按数字键 `1-9` 切换当前物件编号。
-- `Ctrl+S` 保存，输出 `data/map_layout.txt`；游戏启动时会读取这个文件。
+- 右侧可以切换正在编辑的 `1-4` 层，切换前会自动保存当前层。
+- 右侧可以输入楼层尺寸 `W/H`，以及初始 `HP`、`SAN`、`电量`。
+- 右侧 `Objects` 列表展示 `1-9` 剧情物件编号对应名称。
+- `Ctrl+S` 保存，输出当前楼层到 `data/floors/floor_N.txt`，四层会同时同步旧的 `data/map_layout.txt`。
+
+游戏内机制：
+
+- 2-4 层的安全出口门打开后会黑屏弹出“下了楼，就回不来了哦”。
+- 选择“走吧”进入下一层，选择“等等”留在当前层。
+- 1-3 层下楼后的出生点会自动放在该层安全出口门前。
+
+## Current source layout
+
+```text
+LabMidnight/
+|-- main.py                         # game launcher
+|-- map_editor.py                   # map editor launcher
+|-- src/
+|   |-- settings.py                 # shared constants and tile ids
+|   |-- core/
+|   |   |-- game.py                 # main game loop and state transitions
+|   |   `-- player.py               # player state, movement, inventory
+|   |-- maps/
+|   |   |-- map_data.py             # runtime map loading, floors, doors, objects, collision
+|   |   |-- map_editor.py           # developer map editor
+|   |   `-- MAP_EDITOR_GUIDE.md     # map editor usage guide
+|   |-- rendering/
+|   |   `-- renderer.py             # raycasting, floor/ceiling/object rendering
+|   |-- resources/
+|   |   |-- asset_manager.py        # texture loading and fallback textures
+|   |   `-- object_assets.py        # custom object metadata and texture naming
+|   |-- systems/
+|   |   |-- audio_manager.py        # sound loading/playback
+|   |   `-- interaction.py          # focused target and interaction rules
+|   `-- ui/
+|       |-- ui.py                   # HUD, menu, inventory, prompts
+|       `-- ending.py               # ending titles
+|-- assets/
+|   |-- textures/
+|   |-- objects/                    # custom object folders and object.json
+|   |-- sounds/
+|   |-- sprites/
+|   `-- fonts/
+|-- data/
+|   |-- floors/                     # floor_N.txt and floor_N_rooms.json
+|   |-- map_layout.txt              # legacy floor-4 layout mirror
+|   `-- map_rooms.json              # legacy floor-4 metadata mirror
+|-- requirements.txt
+`-- README.md
+```
+
+Map editor usage is documented in [src/maps/MAP_EDITOR_GUIDE.md](src/maps/MAP_EDITOR_GUIDE.md).
