@@ -68,6 +68,8 @@ class MapEditor(
         self.selection_rect: tuple[int, int, int, int] | None = None
         self.selection_items = self._empty_selection_items()
         self.selection_move_snapshot: dict[str, object] | None = None
+        self.selection_include_terrain = False
+        self.box_select_include_terrain = False
         self.clipboard: dict[str, object] | None = None
         self.paste_anchor_cell: tuple[int, int] | None = None
         self.hover_cell: tuple[int, int] | None = None
@@ -139,6 +141,7 @@ class MapEditor(
             "Doors snap to valid wall cells.",
             "Window W paints a wall-height window.",
             "Ctrl+drag box-selects items.",
+            "Ctrl+Shift+drag selects terrain too.",
             "Bottom bar scrolls left/right.",
             "Middle/right drag pans the grid.",
             "Mouse wheel zooms the canvas.",

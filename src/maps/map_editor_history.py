@@ -5,6 +5,7 @@ from dataclasses import asdict
 from src.maps.map_editor_config import *
 from src.maps.map_editor_models import ObjectPlacement, Room
 from src.maps.map_editor_state import MapEditorState
+from src.settings import PLAYER_SPEED, PLAYER_SPEED_MAX, PLAYER_SPEED_MIN
 
 
 class MapEditorHistoryMixin:
@@ -135,5 +136,4 @@ class MapEditorHistoryMixin:
         snapshot = self.redo_stack.pop()
         self._restore_snapshot(snapshot)
         self.state.status = "Redo."
-
 

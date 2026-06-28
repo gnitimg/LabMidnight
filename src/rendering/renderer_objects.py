@@ -8,7 +8,6 @@ import pygame
 
 from src.rendering.renderer_config import (
     DEFAULT_OCCLUSION_SLACK,
-    OBJECT_STABLE_VERTICAL_DISTANCE,
     SMALL_OBJECT_TOP_HIDE_DISTANCE,
     SMALL_OBJECT_TOP_MAX_HEIGHT,
     THIN_PANEL_NEAR_CLIP,
@@ -200,7 +199,7 @@ class RendererObjectMixin:
                 distance_key = (center_x - player.x) ** 2 + (center_y - player.y) ** 2
                 occlusion_slack = THIN_PANEL_OCCLUSION_SLACK if thin_panel else DEFAULT_OCCLUSION_SLACK
                 near_clip = THIN_PANEL_NEAR_CLIP if thin_panel else DOOR_PANEL_NEAR_CLIP
-                stable_vertical = thin_panel or distance_key <= OBJECT_STABLE_VERTICAL_DISTANCE * OBJECT_STABLE_VERTICAL_DISTANCE
+                stable_vertical = thin_panel
                 drawables.append((distance_key, "panel", (texture, p0, p1, bottom_z, object_top_z, side_light, occlusion_slack, near_clip, stable_vertical)))
 
             if not thin_panel:
@@ -215,9 +214,10 @@ class RendererObjectMixin:
         for _, kind, payload in sorted(drawables, key=lambda item: item[0], reverse=True):
             if kind == "top":
                 texture, points, side_light = payload
-                self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light, object_depth_buffer)
+                self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light)
             else:
                 texture, p0, p1, bottom_z, top_z, side_light, occlusion_slack, near_clip, stable_vertical = payload
+                panel_depth_buffer = object_depth_buffer if stable_vertical else None
                 self._draw_world_panel(
                     texture,
                     TILE_WALL,
@@ -233,7 +233,7 @@ class RendererObjectMixin:
                     occlusion_slack=occlusion_slack,
                     near_clip=near_clip,
                     stable_vertical=stable_vertical,
-                    object_depth_buffer=object_depth_buffer,
+                    object_depth_buffer=panel_depth_buffer,
                 )
 
     def _object_height_units(self, obj) -> float:
@@ -386,17 +386,15 @@ class RendererObjectMixin:
         polygon = [(int(x - target.x), int(y - target.y)) for x, y, _forward in projected]
         pygame.draw.polygon(mask, (255, 255, 255, 255), polygon)
         patch.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        if object_depth_buffer is None:
-            self.screen.blit(patch, target)
-            return
 
         visible_ranges: list[tuple[int, int]] = []
         range_start: int | None = None
         for screen_x in range(target.left, target.right):
             ray_index = min(NUM_RAYS - 1, max(0, int(screen_x * NUM_RAYS / SCREEN_WIDTH)))
             distance = self._projected_polygon_column_depth(projected, screen_x, center_distance)
-            if distance <= object_depth_buffer[ray_index] + 0.04:
-                object_depth_buffer[ray_index] = min(object_depth_buffer[ray_index], distance)
+            if distance <= occlusion_buffer[ray_index] + 0.04:
+                if object_depth_buffer is not None:
+                    object_depth_buffer[ray_index] = min(object_depth_buffer[ray_index], distance)
                 if range_start is None:
                     range_start = screen_x
             elif range_start is not None:
