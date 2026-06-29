@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.settings import (
     BUILDING_TOP_FLOOR,
+    FLASHLIGHT_START,
     PLAYER_SPEED,
     PLAYER_SPEED_MAX,
     PLAYER_SPEED_MIN,
@@ -47,7 +48,7 @@ def layout_path_for_floor(floor: int) -> Path:
 
 
 def load_initial_player_config() -> dict[str, float]:
-    defaults = {"hp": 100.0, "sanity": 100.0, "flashlight_power": 86.0, "speed": PLAYER_SPEED}
+    defaults = {"hp": 100.0, "sanity": 100.0, "flashlight_power": FLASHLIGHT_START, "speed": PLAYER_SPEED}
     if not MAP_CONFIG_PATH.exists():
         return defaults
     try:
@@ -70,5 +71,4 @@ def load_initial_player_config() -> dict[str, float]:
         except (TypeError, ValueError):
             pass
     return defaults
-
 

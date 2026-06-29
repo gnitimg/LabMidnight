@@ -18,6 +18,7 @@ from src.settings import (
     COLOR_TEXT,
     COLOR_WARNING,
     COLOR_WHITE,
+    FLASHLIGHT_MAX,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
 )
@@ -130,7 +131,7 @@ class UI:
             previous_value=getattr(player, "sanity_damage_from", player.sanity),
             damage_flash=san_flash,
         )
-        self._draw_bar(surface, 18, 72, "电量", player.flashlight_power, 100, (216, 184, 92))
+        self._draw_bar(surface, 18, 72, "电量", player.flashlight_power, FLASHLIGHT_MAX, (216, 184, 92))
 
         flashlight = "开" if player.flashlight_on and player.flashlight_power > 0 else "关"
         self.draw_text(surface, f"手电：{flashlight}", (18, 102), 19, COLOR_MUTED)
