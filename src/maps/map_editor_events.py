@@ -122,9 +122,10 @@ class MapEditorEventMixin:
             return
         self.paste_anchor_cell = cell
 
-        if pygame.key.get_mods() & pygame.KMOD_CTRL:
+        mods = pygame.key.get_mods()
+        if mods & pygame.KMOD_CTRL:
             self.active_tool = "select"
-            self._begin_box_selection(cell)
+            self._begin_box_selection(cell, include_terrain=bool(mods & pygame.KMOD_SHIFT))
         elif self.active_tool == "select" and self._begin_object_resize_at(pos):
             self._push_drag_history()
             return
@@ -363,6 +364,7 @@ class MapEditorEventMixin:
         self.drag_initial_room = None
         self.drag_initial_object = None
         self.selection_move_snapshot = None
+        self.box_select_include_terrain = False
 
     def _handle_mouse_motion(self, event: pygame.event.Event) -> None:
         self.hover_cell = self._cell_from_pos(event.pos)
@@ -416,4 +418,3 @@ class MapEditorEventMixin:
             self._resize_selected_room(cell)
         elif self.active_tool in {"wall", "window", "erase", "start", "object"}:
             self._paint_cell(cell)
-

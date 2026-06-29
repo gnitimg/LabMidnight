@@ -13,7 +13,7 @@ from src.maps.map_editor_state_grid import MapEditorStateGridMixin
 from src.maps.map_editor_state_load import MapEditorStateLoadMixin
 from src.maps.map_editor_state_objects import MapEditorStateObjectMixin
 from src.resources.object_assets import ObjectSpec, load_object_specs
-from src.settings import PLAYER_SPEED, PLAYER_SPEED_MAX, PLAYER_SPEED_MIN
+from src.settings import FLASHLIGHT_START, PLAYER_SPEED, PLAYER_SPEED_MAX, PLAYER_SPEED_MIN
 
 
 class MapEditorState(
@@ -28,7 +28,7 @@ class MapEditorState(
         self.grid_height = DEFAULT_GRID_HEIGHT
         self.initial_hp = 100
         self.initial_sanity = 100
-        self.initial_battery = 86
+        self.initial_battery = int(FLASHLIGHT_START)
         self.player_speed = PLAYER_SPEED
         self.object_specs: dict[str, ObjectSpec] = load_object_specs()
         self.rooms: list[Room] = []
@@ -44,4 +44,3 @@ class MapEditorState(
         self.status = ""
         self._load_initial_config()
         self.rebuild_grid()
-

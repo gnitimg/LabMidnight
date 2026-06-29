@@ -1,209 +1,177 @@
 # LabMidnight
 
-> 加班累了是吗 —— 基于 Python + Pygame 的第一人称伪 3D 恐怖解谜 RPG MVP
+[]()
 
-## 项目简介
+> 加班累了是吗 -- 基于 Python + Pygame 的第一人称伪 3D 恐怖解谜 RPG Demo
 
-`LabMidnight（加班累了是吗）` 是一个 PythonGame 课程 Demo。玩家在凌晨两点的实验楼中醒来，发现整栋楼突然停电。走廊陷入黑暗，手机信号异常，一间本应空无一人的教室里传来老师讲课声。
+## 1. 项目概览
 
-玩家需要依靠手电筒探索实验楼四层局部区域，收集钥匙、纸条、保险丝、门禁卡等道具，破解实验室、异常教室、配电室和出口门禁组成的轻量谜题流程，在理智值耗尽前离开实验楼。
+`LabMidnight（加班累了是吗）` 是一个 PythonGame 课程项目。玩家在凌晨两点从实验楼四层醒来，停电、讲课声、手电电量、SAN 值和动态蚊虫共同形成压力。玩家需要收集关键物资，恢复三楼供电，确认一楼正门被锁，最后从二楼西侧旧连廊逃离。
 
-## 已实现内容
-
-- Pygame 窗口、主菜单、操作说明、暂停、背包、成功结局、失败结局
-- 2D 网格地图 + Raycasting 第一人称伪 3D 渲染
-- W/S 前进后退，A/D 左右移动，鼠标移动控制视角
-- 碰撞检测，不能穿墙或穿过未解锁门
-- Space 和鼠标左键交互
-- 鼠标右键开关手电筒
-- 手电电量、低电量变暗、黑暗中理智值下降
-- 背包与剧情 flags
-- 实验室脱出、异常教室线索、配电室恢复供电、机房门禁卡、出口通关
-- 音效管理器，资源缺失时只输出 warning，不会导致游戏崩溃
-
-## 操作方式
-
-| 输入 | 功能 |
+| 项目项 | 当前设计 |
 |---|---|
-| W | 前进 |
-| S | 后退 |
-| A / D | 向左 / 向右移动 |
-| 鼠标移动 | 移动视角 |
-| Space | 交互、开门、拾取、查看线索 |
-| 鼠标左键 | 交互或确认 |
-| 鼠标右键 | 开关手电筒 |
-| B / I | 打开或关闭背包 |
-| F2 | 切换渲染质量：性能 / 平衡 / 清晰 |
-| ESC | 暂停或返回 |
+| 项目类型 | 第一人称伪 3D 恐怖解谜 RPG Demo |
+| 技术路线 | `Python + Pygame + 2D 网格地图 + Raycasting` |
+| 场景范围 | 实验楼 1F-4F 局部区域 |
+| 核心体验 | 黑暗探索、手电资源、SAN 压力、异常音效、动态蚊虫、道具解谜 |
+| 成功路线 | 4F -> 3F -> 1F -> 2F 西侧安全出口 |
+| 失败条件 | SAN 降为 0 |
+| 结局表现 | 成功/失败视频均先黑场，再淡入播放一次；视频结束停最后一帧 |
 
-不使用 F 键交互；Space 不用于跳跃。
+## 2. 当前功能
 
-## 运行方式
+| 模块 | 当前能力 | 关键文件 |
+|---|---|---|
+| 主循环 | 菜单、暂停、背包、楼层选择、成功/失败状态 | `src/core/game.py` |
+| 输入 | WASD、鼠标视角、Space/左键交互、右键手电、F2 画质 | `src/core/game_input.py` |
+| 渲染 | Raycasting 墙体、地面、天花板、门、二维贴图物件、动态实体 | `src/rendering/` |
+| 地图 | 1F-4F 文本地图和 JSON 元数据 | `data/floors/` |
+| 交互 | 门锁、拾取、剧情触发、楼层切换、最终逃离 | `src/systems/interaction_*.py` |
+| 状态 | HP、SAN、手电电量、背包、剧情 flag | `src/core/player.py` |
+| 蚊虫 | 动态生成、BFS 寻路、追咬、血条、拖尾、空间嗡嗡声 | `src/systems/mosquito_system.py` |
+| 音效 | 普通音效、循环环境音、空间声像循环 | `src/systems/audio_manager.py` |
+| 结局视频 | 成功/失败 mp4 一次性播放，缺资源 fallback | `src/ui/ending_video.py` |
+| 地图编辑器 | 楼层、房间、门、窗、对象、剧情绑定编辑 | `map_editor.py` |
 
-```bash
-pip install -r requirements.txt
-python main.py
-```
+## 3. 运行方式
 
-渲染默认使用 NumPy 加速地面透视采样。入口会设置 SDL/独显相关提示变量，但 Pygame 不能强制选择 NVIDIA 独显；如果笔记本仍使用核显，可在 Windows“设置 > 系统 > 显示 > 图形”中把 `python.exe` 设为高性能。
+| 场景 | 命令 |
+|---|---|
+| 安装依赖 | `pip install -r requirements.txt` |
+| 启动游戏 | `python main.py` |
+| 启动地图编辑器 | `python map_editor.py` |
+| 编译自检 | `python -m compileall main.py map_editor.py src` |
 
-画质可以在游戏中按 `F2` 切换。性能档更接近 60 FPS；清晰档纹理更锐利但更吃 CPU。
+## 4. 操作方式
 
-如果没有音效文件，游戏仍可运行。音效可按以下名称放入 `assets/sounds/`：
+| 输入 | 功能 | 说明 |
+|---|---|---|
+| W / S | 前进 / 后退 | 第一人称移动 |
+| A / D | 左右平移 | 不负责转向 |
+| 鼠标移动 | 控制视角 | 支持水平和有限垂直视角 |
+| Space | 交互 | 开门、关门、拾取、查看线索 |
+| 鼠标左键 | 攻击可见蚊子 / 普通交互 | 优先攻击命中的蚊子；未命中时执行交互 |
+| 鼠标右键 | 开关手电 | 无手电或没电时会提示 |
+| B / I | 背包 | 查看已有道具说明 |
+| F2 | 画质切换 | 性能 / 平衡 / 清晰 |
+| ESC | 暂停或返回 | 结局视频播放完前会拦截退出 |
 
-```text
-ambient_lab.wav
-ambient_power.wav
-lecture_loop.wav
-laugh_01.wav
-cry_01.wav
-knock_door.wav
-door_open.wav
-item_pick.wav
-power_restore.wav
-error.wav
-sanity_low.wav
-```
+## 5. 最短通关路线
 
-贴图资源放入 `assets/textures/`，缺失时会使用默认纯色绘制。标准名称见 [assets/ASSET_NAMES.md](assets/ASSET_NAMES.md)，常用文件包括：
+| 阶段 | 楼层 | 目标 | 关键触发器 / 道具 |
+|---|---:|---|---|
+| 1 | 4F | 拿手电 | `lab_flashlight` |
+| 2 | 4F | 拿楼梯钥匙 | `stair_key` |
+| 3 | 4F -> 3F | 使用安全出口下楼 | `E` 出口门 |
+| 4 | 3F | 找密码条 | `security_code_648` |
+| 5 | 3F | 拿保险丝 | `fuse_cabinet` |
+| 6 | 3F | 拿塑料卡片 | `plastic_card_3f` |
+| 7 | 3F | 修复配电箱 | `power_box`，需要 `plastic_card` + `fuse` |
+| 8 | 3F -> 1F | 坐电梯 | `elevator`，需要三楼供电 |
+| 9 | 1F | 查看正门锁 | `lobby_main_exit_locked`，剧情提示 |
+| 10 | 1F | 翻登记册 | `lobby_register_note`，获得 `old_corridor_note` |
+| 11 | 1F -> 2F | 从安全出口到二楼 | 需要 `old_corridor_note` |
+| 12 | 2F | 找工号 276 | `staff_code_276` |
+| 13 | 2F | 拿旧连廊通行牌 | `maintenance_pass` |
+| 14 | 2F | 试西侧安全出口 | `old_corridor_door`，发现磁吸卡死 |
+| 15 | 2F | 拾取废弃工牌 | `utility_badge`，位于西侧小厅 |
+| 16 | 2F | 拉下磁吸释放开关 | `magnet_release`，位于西墙 |
+| 17 | 2F | 再次检查西侧安全出口 | 触发成功结局 |
 
-```text
-ceiling.png
-floor.png
-wall.png
-door.png
-door_lab.png
-door_classroom.png
-door_power.png
-door_exit.png
-```
+详细路线见 [docs/shortest_clear_route.md](docs/shortest_clear_route.md)。
 
-## 地图编辑
+## 6. 动态蚊虫系统
 
-地图支持 1-4 层。编辑器会优先保存到 `data/floors/floor_1.txt` 到 `data/floors/floor_4.txt`；旧的 [data/map_layout.txt](data/map_layout.txt) 仍作为四层兼容入口。一个字符代表一块 `60cm x 60cm` 地砖。
+蚊子不是地图静态物体，而是运行时动态实体。它们在二维地图坐标中生成和移动，再由渲染器作为 2.5D billboard 投影到屏幕。
 
-常用符号：
+| 设计点 | 当前实现 |
+|---|---|
+| 定位 | 动态干扰，不是传统战斗怪物 |
+| 生成 | 每层生成潜伏点，按时间和环境概率激活 |
+| 移动 | 游荡、BFS 追踪、近距离盘旋、冲刺扑咬 |
+| 攻击玩家 | 进入攻击距离后扣 5 点 SAN |
+| 玩家反击 | 鼠标左键点击可见蚊子 |
+| 命中规则 | 只命中 `visible` 且有 `screen_rect` 的蚊子 |
+| 伤害规则 | 伤害 = 当前 SAN，不额外消耗 SAN |
+| 遮挡 | 使用 raycasting depth buffer，墙体和关闭门可遮挡 |
+| 音效 | 选择威胁最高的蚊子播放空间嗡嗡声 |
 
-```text
-# 墙
-. 地面
-@ 玩家出生点
-L 实验室门
-M 机房门，使用实验室门贴图
-C 教室门
-G 门卫处门
-P 配电室门
-E 出口门
-1-9 剧情物件，具体含义见 map_layout.txt 顶部说明
-```
+| 常量 | 当前值 | 含义 |
+|---|---:|---|
+| `MOSQUITO_HP` | 150 | 单只蚊子 HP |
+| `MOSQUITO_MAX_ACTIVE` | 6 | 同时存在上限 |
+| `MOSQUITO_MAX_PER_FLOOR` | 6 | 每层累计生成上限 |
+| `MOSQUITO_SPAWN_INTERVAL_MIN/MAX` | 8-15 秒 | 后续生成间隔 |
+| `MOSQUITO_ATTACK_RANGE` | 1.30 | 叮咬距离 |
+| `MOSQUITO_ATTACK_SAN_DAMAGE` | 5 | 每次叮咬扣 SAN |
+| `MOSQUITO_VISIBLE_DISTANCE` | 16.0 | 可见投影距离 |
+| `MOSQUITO_AUDIO_DISTANCE` | 12.0 | 嗡嗡声衰减距离 |
+| `MOSQUITO_TARGET_LOST_DISTANCE` | 50.0 | 超距后放弃追踪 |
 
-## 最短通关路线
+详细设计见 [docs/mosquito_system_design.md](docs/mosquito_system_design.md)。
 
-```text
-开始游戏
-检查实验桌，获得手电筒和实验室钥匙
-打开实验室门，进入走廊
-进入异常教室，检查黑板或讲台
-获得配电室线索
-进入保安室，获得实验楼平面图和保险丝
-打开配电室门，使用保险丝恢复部分电力
-进入机房，获得门禁卡
-前往出口，使用门禁卡离开
-进入成功结局：回到寝室
-```
+## 7. 结局视频
 
-失败路线：长时间处于黑暗、低电量拖延或理智值降为 0 后进入失败结局：组会还没结束。
+| 结局 | 视频文件 | 当前播放方式 | fallback |
+|---|---|---|---|
+| 成功 | `assets/videos/successful.mp4` | 黑场约 1 秒，淡入播放一次，结束停最后一帧 | 静态成功画面 |
+| 失败 | `assets/videos/defeat.mp4` | 黑场约 1 秒，淡入播放一次，结束停最后一帧 | 静态失败画面 |
 
-## 文件结构
+| 规则 | 说明 |
+|---|---|
+| 不循环 | 视频结束后不从头播放 |
+| 输入拦截 | 视频播放完前，成功/失败结局都不响应返回或重开 |
+| 资源容错 | 缺少 OpenCV、视频文件或解码失败时不崩溃 |
 
-```text
-LabMidnight/
-├── main.py
-├── src/
-│   ├── __init__.py
-│   ├── settings.py
-│   ├── game.py
-│   ├── player.py
-│   ├── renderer.py
-│   ├── map_data.py
-│   ├── interaction.py
-│   ├── audio_manager.py
-│   ├── ui.py
-│   └── ending.py
-├── assets/
-│   ├── textures/
-│   ├── sprites/
-│   ├── sounds/
-│   └── fonts/
-├── data/
-├── requirements.txt
-└── README.md
-```
-## 开发者地图编辑器
+## 8. 资源清单
 
-运行：
+| 类型 | 路径 | 说明 |
+|---|---|---|
+| 墙体贴图 | `assets/textures/` | Raycasting 墙、门、电梯等 |
+| 物体贴图 | `assets/objects/<object_id>/` | 黑板、白板、电梯等固定二维贴图 |
+| 蚊子精灵 | `assets/sprites/mosquito.png` | 可选；缺失时使用程序绘制 |
+| 音效 | `assets/sounds/` | 环境音、交互音、蚊子音效 |
+| 结局视频 | `assets/videos/` | `successful.mp4`、`defeat.mp4` |
+| 字体 | `assets/fonts/` | 可选；缺失时使用 fallback |
 
-```bash
-python map_editor.py
-```
+| 蚊子音效 | 作用 |
+|---|---|
+| `mosquito_buzz.wav` | 空间嗡嗡声 |
+| `mosquito_hit.wav` | 被拍中反馈 |
+| `mosquito_die.wav` | 死亡反馈 |
+| `mosquito_bite.wav` | 叮咬反馈 |
 
-编辑器只用于开发阶段，不会改变 `python main.py` 的游戏入口。主要规则：
+## 9. 地图和物件注意事项
 
-- 从左侧工具栏选择或拖出 `Room`，在网格上拖拽生成房间。
-- 选中房间后，拖拽房间右下角的小方块可以修改房间大小；拖拽房间内部可以移动房间。
-- 右侧属性栏可以编辑房间 `Name` 和 `Number`，这些信息保存到 `data/map_rooms.json`。
-- 选择 `Door L/G/C/P/E/M` 后，把门拖到墙上释放；编辑器会吸附到最近的墙格，并把该墙格替换成门符号。
-- `M` 是机房门角色，使用实验室门贴图；门类型仍按实验室门、门卫处门、配电室门、出口门、教室门这五类资源管理。
-- `Start` 放置玩家出生点，`Obj 1-9` 放置剧情物件，按数字键 `1-9` 切换当前物件编号。
-- 右侧可以切换正在编辑的 `1-4` 层，切换前会自动保存当前层。
-- 右侧可以输入楼层尺寸 `W/H`，以及初始 `HP`、`SAN`、`电量`。
-- 右侧 `Objects` 列表展示 `1-9` 剧情物件编号对应名称。
-- `Ctrl+S` 保存，输出当前楼层到 `data/floors/floor_N.txt`，四层会同时同步旧的 `data/map_layout.txt`。
+| 对象 | 当前规则 |
+|---|---|
+| 电梯 | 固定二维贴图；不渲染 3D 侧面和顶面 |
+| 黑板 | 固定二维贴图；1F/2F/3F/4F 高度统一为 `height=2.0` |
+| 白板 | 固定二维贴图；交互提示为“查看白板背面” |
+| 1F 西侧安全出口 | 提示正门/出口已上锁，不触发成功 |
+| 2F 西侧安全出口 | 通行牌 + 磁吸释放后触发成功 |
+| 2F 磁吸释放 | 先试门，再拿废弃工牌，再拉释放开关 |
 
-游戏内机制：
+## 10. 文档入口
 
-- 2-4 层的安全出口门打开后会黑屏弹出“下了楼，就回不来了哦”。
-- 选择“走吧”进入下一层，选择“等等”留在当前层。
-- 1-3 层下楼后的出生点会自动放在该层安全出口门前。
+| 文档 | 用途 |
+|---|---|
+| [docs/development_overview.md](docs/development_overview.md) | 表格版开发文档总览 |
+| [docs/mosquito_system_design.md](docs/mosquito_system_design.md) | 蚊虫系统专题设计 |
+| [docs/shortest_clear_route.md](docs/shortest_clear_route.md) | 最短通关路线和地图条件检查 |
+| [.doc/LabMidnight开发文档.md](.doc/LabMidnight开发文档.md) | 课程提交用开发文档 |
+| [.doc/mosquito_system_design.md](.doc/mosquito_system_design.md) | 课程文档目录下的蚊虫系统设计 |
 
-## Current source layout
+## 11. 验收建议
 
-```text
-LabMidnight/
-|-- main.py                         # game launcher
-|-- map_editor.py                   # map editor launcher
-|-- src/
-|   |-- settings.py                 # shared constants and tile ids
-|   |-- core/
-|   |   |-- game.py                 # main game loop and state transitions
-|   |   `-- player.py               # player state, movement, inventory
-|   |-- maps/
-|   |   |-- map_data.py             # runtime map loading, floors, doors, objects, collision
-|   |   |-- map_editor.py           # developer map editor
-|   |   `-- MAP_EDITOR_GUIDE.md     # map editor usage guide
-|   |-- rendering/
-|   |   `-- renderer.py             # raycasting, floor/ceiling/object rendering
-|   |-- resources/
-|   |   |-- asset_manager.py        # texture loading and fallback textures
-|   |   `-- object_assets.py        # custom object metadata and texture naming
-|   |-- systems/
-|   |   |-- audio_manager.py        # sound loading/playback
-|   |   `-- interaction.py          # focused target and interaction rules
-|   `-- ui/
-|       |-- ui.py                   # HUD, menu, inventory, prompts
-|       `-- ending.py               # ending titles
-|-- assets/
-|   |-- textures/
-|   |-- objects/                    # custom object folders and object.json
-|   |-- sounds/
-|   |-- sprites/
-|   `-- fonts/
-|-- data/
-|   |-- floors/                     # floor_N.txt and floor_N_rooms.json
-|   |-- map_layout.txt              # legacy floor-4 layout mirror
-|   `-- map_rooms.json              # legacy floor-4 metadata mirror
-|-- requirements.txt
-`-- README.md
-```
-
-Map editor usage is documented in [src/maps/MAP_EDITOR_GUIDE.md](src/maps/MAP_EDITOR_GUIDE.md).
+| 检查项 | 通过标准 |
+|---|---|
+| 启动 | `python main.py` 能进入主菜单 |
+| 编译 | `python -m compileall main.py map_editor.py src` 无错误 |
+| 主线 | 能按 4F -> 3F -> 1F -> 2F 路线通关 |
+| 手电 | 电量条按 `FLASHLIGHT_MAX=200` 显示 |
+| 蚊子 | 能生成、追踪、叮咬、被点击击杀 |
+| 遮挡 | 蚊子在墙或关闭门后不可见，不可被点中 |
+| 音效 | 蚊子嗡嗡声有距离和左右声道变化 |
+| 结局 | 成功/失败视频只播一遍，播放前有黑场淡入 |
+| 容错 | 缺少非关键资源时不崩溃 |

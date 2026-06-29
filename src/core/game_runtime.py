@@ -27,6 +27,11 @@ class GameRuntimeMixin:
         self._handle_continuous_input(dt)
         self.game_map.update_doors(dt)
         self._update_player_state(dt)
+        if self.state != STATE_PLAYING:
+            return
+        self.mosquito_system.update(self, dt)
+        if self.state != STATE_PLAYING:
+            return
         self._update_story_triggers()
 
     def _handle_continuous_input(self, dt: float) -> None:
@@ -97,12 +102,14 @@ class GameRuntimeMixin:
     def enter_success(self) -> None:
         self.player.flags["success_ending"] = True
         self.audio.stop_all()
+        self.ui.reset_ending_video(True)
         self.set_state(STATE_SUCCESS)
 
     def enter_failure(self) -> None:
         self.player.flags["failure_ending"] = True
         self.audio.stop_all()
         self.audio.play("sanity_low", volume=0.8, cooldown=0.0)
+        self.ui.reset_ending_video(False)
         self.set_state(STATE_FAILURE)
 
     def draw(self) -> None:
@@ -110,8 +117,9 @@ class GameRuntimeMixin:
             self.ui.draw_menu(self.screen, self.menu_selected, self.show_instructions)
         elif self.state in (STATE_PLAYING, STATE_PAUSED, STATE_INVENTORY, STATE_FLOOR_CONFIRM):
             elapsed = time.monotonic() - self.started_at
-            self.renderer.render(self.player, elapsed)
+            self.renderer.render(self.player, elapsed, dynamic_entities=self.mosquito_system.dynamic_entities())
             self.renderer.draw_dark_overlay(self.player, elapsed)
+            self.renderer.draw_dynamic_entity_overlays()
             prompt = self.interaction.prompt_for(self.player) if self.state == STATE_PLAYING else ""
             self.ui.draw_hud(self.screen, self.player, self.current_message(), prompt, self.current_floor)
             if self.state == STATE_PAUSED:
@@ -127,4 +135,3 @@ class GameRuntimeMixin:
         else:
             self.screen.fill(COLOR_BLACK)
         pygame.display.flip()
-

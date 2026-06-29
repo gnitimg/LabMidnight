@@ -88,8 +88,7 @@ class InteractionTargetingMixin:
             seen.add(cell)
             tile = self.game_map.tile_at(*cell)
             if tile in DOOR_TILES:
-                if not self.game_map.is_open_door(*cell) or tile == TILE_EXIT_DOOR:
-                    return ("door", distance, cell, tile)
+                return ("door", distance, cell, tile)
             elif tile in WALL_TILES:
                 return ("wall", distance, cell, tile)
             distance += 0.03
@@ -228,6 +227,8 @@ class InteractionTargetingMixin:
             return f"按 Space 检查{payload.name}"
         tile = payload
         role = self.game_map.door_role_at(*cell)
+        if self.game_map.is_open_door(*cell):
+            return "按 Space 关门"
         if tile == TILE_EXIT_DOOR:
             if self.game_map.floor == BUILDING_BOTTOM_FLOOR:
                 if self._is_stairwell_exit(cell):
@@ -235,8 +236,8 @@ class InteractionTargetingMixin:
                         return "按 Space 上二楼"
                     return "楼梯间。先看看大厅有没有线索"
                 return "按 Space 推大厅玻璃门"
-            if self.game_map.floor == 2 and self._is_stairwell_exit(cell) and player.has_item("old_corridor_note"):
-                return "按 Space 检查西侧安全门"
+            if self.game_map.floor == 2 and self._is_old_corridor_exit(cell):
+                return "按 Space 检查西侧安全出口"
             if not player.has_item("stair_key") and not player.has_item("lab_key"):
                 return "安全出口需要机械钥匙"
             return "按 Space 进入安全出口"
@@ -251,4 +252,3 @@ class InteractionTargetingMixin:
         if role == "guard":
             return "按 Space 开门卫处门"
         return "按 Space 开门"
-

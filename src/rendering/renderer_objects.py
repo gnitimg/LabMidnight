@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
+import time
 
 import pygame
 
 from src.rendering.renderer_config import (
     DEFAULT_OCCLUSION_SLACK,
-    OBJECT_STABLE_VERTICAL_DISTANCE,
+    FIXED_WALL_DECAL_OBJECT_IDS,
     SMALL_OBJECT_TOP_HIDE_DISTANCE,
     SMALL_OBJECT_TOP_MAX_HEIGHT,
     THIN_PANEL_NEAR_CLIP,
@@ -20,7 +22,9 @@ from src.resources.asset_manager import TEXTURE_ELEVATOR
 from src.settings import (
     CAMERA_HEIGHT_UNITS,
     CEILING_HEIGHT_UNITS,
+    DISTANCE_TO_PROJECTION,
     DOOR_PANEL_NEAR_CLIP,
+    HALF_FOV,
     HALF_WIDTH,
     NUM_RAYS,
     RAY_NEAR_CLIP,
@@ -29,10 +33,143 @@ from src.settings import (
     TILE_WALL,
     VERTICAL_PROJECTION,
     VERTICAL_UNITS_PER_TILE,
+    WALL_TILES,
+)
+from src.systems.mosquito_system import (
+    MOSQUITO_HIT_RADIUS_SCREEN,
+    MOSQUITO_HP,
+    MOSQUITO_VISIBLE_DISTANCE,
 )
 
 
 class RendererObjectMixin:
+    def _draw_wall_decals(
+        self,
+        player,
+        elapsed: float,
+        horizon: int,
+        depth_buffer: list[float],
+        wall_hits: list[tuple[int, int, int, float, float, float, int, tuple[int, int], float]],
+    ) -> None:
+        decals = [
+            decal
+            for anchor, obj in self.game_map.objects.items()
+            if anchor not in self.game_map.picked_objects
+            and obj.object_id in FIXED_WALL_DECAL_OBJECT_IDS
+            for decal in [self._wall_object_decal(anchor, obj)]
+            if decal is not None and self._wall_decal_has_backing(decal)
+        ]
+        if not decals:
+            return
+
+        for _ray, screen_x, column_width, distance, hit_x, hit_y, side, cell, ray_angle in wall_hits:
+            for decal in decals:
+                u = self._wall_decal_u(decal, cell, hit_x, hit_y)
+                if u is None:
+                    continue
+                self._draw_wall_decal_column(
+                    decal,
+                    u,
+                    screen_x,
+                    column_width,
+                    distance,
+                    ray_angle,
+                    player,
+                    elapsed,
+                    horizon,
+                    side,
+                )
+                break
+
+    def _wall_object_decal(self, anchor: tuple[int, int], obj) -> dict | None:
+        rotation = obj.rotation % 360
+        x, y = anchor
+        length = max(0.05, obj.length)
+        bottom_z = obj.placement_height * VERTICAL_UNITS_PER_TILE
+        top_z = bottom_z + self._object_height_units(obj)
+        if top_z <= bottom_z:
+            return None
+
+        texture = self._object_face_texture(obj.asset_id or obj.object_id, "front")
+        if rotation == 0:
+            return {"axis": "x", "wall_cell_y": y - 1, "fixed": float(y), "start": float(x), "length": length, "reverse": False, "texture": texture, "bottom_z": bottom_z, "top_z": top_z}
+        if rotation == 180:
+            return {"axis": "x", "wall_cell_y": y + 1, "fixed": float(y + 1), "start": float(x), "length": length, "reverse": True, "texture": texture, "bottom_z": bottom_z, "top_z": top_z}
+        if rotation == 90:
+            return {"axis": "y", "wall_cell_x": x - 1, "fixed": float(x), "start": float(y), "length": length, "reverse": False, "texture": texture, "bottom_z": bottom_z, "top_z": top_z}
+        if rotation == 270:
+            return {"axis": "y", "wall_cell_x": x + 1, "fixed": float(x + 1), "start": float(y), "length": length, "reverse": True, "texture": texture, "bottom_z": bottom_z, "top_z": top_z}
+        return None
+
+    def _wall_decal_has_backing(self, decal: dict) -> bool:
+        start = int(math.floor(decal["start"]))
+        end = int(math.ceil(decal["start"] + decal["length"]))
+        if decal["axis"] == "x":
+            wall_y = int(decal["wall_cell_y"])
+            return any(self.game_map.tile_at(x, wall_y) in WALL_TILES for x in range(start, end))
+        wall_x = int(decal["wall_cell_x"])
+        return any(self.game_map.tile_at(wall_x, y) in WALL_TILES for y in range(start, end))
+
+    def _wall_decal_u(self, decal: dict, cell: tuple[int, int], hit_x: float, hit_y: float) -> float | None:
+        if decal["axis"] == "x":
+            if cell[1] != decal["wall_cell_y"]:
+                return None
+            if abs(hit_y - decal["fixed"]) > 0.015:
+                return None
+            local = hit_x - decal["start"]
+        else:
+            if cell[0] != decal["wall_cell_x"]:
+                return None
+            if abs(hit_x - decal["fixed"]) > 0.015:
+                return None
+            local = hit_y - decal["start"]
+
+        if local < 0.0 or local > decal["length"]:
+            return None
+        u = local / max(0.001, decal["length"])
+        if decal["reverse"]:
+            u = 1.0 - u
+        return max(0.0, min(0.999, u))
+
+    def _draw_wall_decal_column(
+        self,
+        decal: dict,
+        u: float,
+        screen_x: int,
+        column_width: int,
+        distance: float,
+        ray_angle: float,
+        player,
+        elapsed: float,
+        horizon: int,
+        side: int,
+    ) -> None:
+        texture = decal["texture"]
+        texture_width, texture_height = texture.get_size()
+        if texture_width <= 0 or texture_height <= 0:
+            return
+
+        top_y = horizon - VERTICAL_PROJECTION * (decal["top_z"] - CAMERA_HEIGHT_UNITS) / max(RAY_NEAR_CLIP, distance)
+        bottom_y = horizon - VERTICAL_PROJECTION * (decal["bottom_z"] - CAMERA_HEIGHT_UNITS) / max(RAY_NEAR_CLIP, distance)
+        slice_info = self._visible_wall_slice(top_y, bottom_y, texture_height)
+        if slice_info is None:
+            return
+
+        visible_top, visible_height, source_y, source_height = slice_info
+        texture_x = max(0, min(texture_width - 1, int(u * texture_width)))
+        source = pygame.Rect(texture_x, source_y, 1, source_height)
+        column = texture.subsurface(source)
+        column = pygame.transform.scale(column, (column_width + 1, visible_height))
+        shade = self._shade_factor(distance, ray_angle, player, elapsed) * self._wall_side_light(side)
+        shade_value = max(0, min(255, int(255 * min(1.0, shade))))
+        if column.get_flags() & pygame.SRCALPHA:
+            column = column.convert_alpha()
+            column.fill((shade_value, shade_value, shade_value, 255), special_flags=pygame.BLEND_RGBA_MULT)
+        else:
+            column = column.convert()
+            column.fill((shade_value, shade_value, shade_value), special_flags=pygame.BLEND_RGB_MULT)
+        self.screen.blit(column, (screen_x, visible_top))
+
     def _draw_objects(self, player, elapsed: float, horizon: int, depth_buffer: list[float]) -> None:
         drawables: list[tuple[float, str, tuple]] = []
         object_depth_buffer = depth_buffer[:]
@@ -45,6 +182,13 @@ class RendererObjectMixin:
             object_height = self._object_height_units(obj)
             object_top_z = bottom_z + object_height
             if object_top_z <= bottom_z:
+                continue
+
+            if obj.object_id in FIXED_WALL_DECAL_OBJECT_IDS:
+                decal = self._wall_object_decal(anchor, obj)
+                if decal is not None and self._wall_decal_has_backing(decal):
+                    continue
+                self._append_fixed_world_panel(drawables, player, anchor, obj, asset_id, bottom_z, object_top_z)
                 continue
 
             thin_panel = self._object_is_thin_panel(obj, x0, y0, x1, y1)
@@ -71,7 +215,7 @@ class RendererObjectMixin:
                 distance_key = (center_x - player.x) ** 2 + (center_y - player.y) ** 2
                 occlusion_slack = THIN_PANEL_OCCLUSION_SLACK if thin_panel else DEFAULT_OCCLUSION_SLACK
                 near_clip = THIN_PANEL_NEAR_CLIP if thin_panel else DOOR_PANEL_NEAR_CLIP
-                stable_vertical = thin_panel or distance_key <= OBJECT_STABLE_VERTICAL_DISTANCE * OBJECT_STABLE_VERTICAL_DISTANCE
+                stable_vertical = thin_panel
                 drawables.append((distance_key, "panel", (texture, p0, p1, bottom_z, object_top_z, side_light, occlusion_slack, near_clip, stable_vertical)))
 
             if not thin_panel:
@@ -86,9 +230,10 @@ class RendererObjectMixin:
         for _, kind, payload in sorted(drawables, key=lambda item: item[0], reverse=True):
             if kind == "top":
                 texture, points, side_light = payload
-                self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light, object_depth_buffer)
+                self._draw_world_top(texture, points, player, elapsed, horizon, depth_buffer, side_light)
             else:
                 texture, p0, p1, bottom_z, top_z, side_light, occlusion_slack, near_clip, stable_vertical = payload
+                panel_depth_buffer = object_depth_buffer if stable_vertical else None
                 self._draw_world_panel(
                     texture,
                     TILE_WALL,
@@ -104,8 +249,42 @@ class RendererObjectMixin:
                     occlusion_slack=occlusion_slack,
                     near_clip=near_clip,
                     stable_vertical=stable_vertical,
-                    object_depth_buffer=object_depth_buffer,
+                    object_depth_buffer=panel_depth_buffer,
                 )
+
+    def _append_fixed_world_panel(
+        self,
+        drawables: list[tuple[float, str, tuple]],
+        player,
+        anchor: tuple[int, int],
+        obj,
+        asset_id: str,
+        bottom_z: float,
+        object_top_z: float,
+    ) -> None:
+        for face, _normal, p0, p1, _side_light in self._object_face_data(anchor, obj):
+            if face != "front":
+                continue
+            center_x = (p0[0] + p1[0]) * 0.5
+            center_y = (p0[1] + p1[1]) * 0.5
+            texture = self._object_face_texture(asset_id, "front")
+            distance_key = (center_x - player.x) ** 2 + (center_y - player.y) ** 2
+            drawables.append((
+                distance_key,
+                "panel",
+                (
+                    texture,
+                    p0,
+                    p1,
+                    bottom_z,
+                    object_top_z,
+                    1.0,
+                    THIN_PANEL_OCCLUSION_SLACK,
+                    THIN_PANEL_NEAR_CLIP,
+                    True,
+                ),
+            ))
+            return
 
     def _object_height_units(self, obj) -> float:
         return max(0.05, obj.height) * VERTICAL_UNITS_PER_TILE
@@ -257,17 +436,15 @@ class RendererObjectMixin:
         polygon = [(int(x - target.x), int(y - target.y)) for x, y, _forward in projected]
         pygame.draw.polygon(mask, (255, 255, 255, 255), polygon)
         patch.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        if object_depth_buffer is None:
-            self.screen.blit(patch, target)
-            return
 
         visible_ranges: list[tuple[int, int]] = []
         range_start: int | None = None
         for screen_x in range(target.left, target.right):
             ray_index = min(NUM_RAYS - 1, max(0, int(screen_x * NUM_RAYS / SCREEN_WIDTH)))
             distance = self._projected_polygon_column_depth(projected, screen_x, center_distance)
-            if distance <= object_depth_buffer[ray_index] + 0.04:
-                object_depth_buffer[ray_index] = min(object_depth_buffer[ray_index], distance)
+            if distance <= occlusion_buffer[ray_index] + 0.04:
+                if object_depth_buffer is not None:
+                    object_depth_buffer[ray_index] = min(object_depth_buffer[ray_index], distance)
                 if range_start is None:
                     range_start = screen_x
             elif range_start is not None:
@@ -419,3 +596,210 @@ class RendererObjectMixin:
             self.screen.blit(column, (screen_x, visible_top))
             if object_depth_buffer is not None:
                 object_depth_buffer[ray_index] = min(object_depth_buffer[ray_index], distance)
+
+    def _draw_dynamic_entities(
+        self,
+        player,
+        elapsed: float,
+        horizon: int,
+        depth_buffer: list[float],
+        dynamic_entities: list[dict] | None,
+    ) -> None:
+        if not dynamic_entities:
+            return
+
+        drawables: list[tuple[float, dict]] = []
+        for entity in dynamic_entities:
+            ref = entity.get("ref")
+            if ref is not None:
+                ref.visible = False
+                ref.screen_rect = None
+            if entity.get("kind") != "mosquito":
+                continue
+            dx = float(entity.get("x", 0.0)) - player.x
+            dy = float(entity.get("y", 0.0)) - player.y
+            distance = math.hypot(dx, dy)
+            drawables.append((distance, entity))
+
+        for _distance, entity in sorted(drawables, key=lambda item: item[0], reverse=True):
+            self._draw_mosquito_entity(player, elapsed, horizon, depth_buffer, entity)
+
+    def _draw_mosquito_entity(self, player, elapsed: float, horizon: int, depth_buffer: list[float], entity: dict) -> None:
+        ref = entity.get("ref")
+        projection = self._project_mosquito_point(
+            float(entity.get("x", 0.0)),
+            float(entity.get("y", 0.0)),
+            player,
+            horizon,
+            depth_buffer,
+            elapsed,
+            getattr(ref, "mosquito_id", 0),
+        )
+        if projection is None:
+            return
+
+        screen_x, screen_y, screen_size, distance, world_angle = projection
+        visual_rect = pygame.Rect(0, 0, screen_size, screen_size)
+        visual_rect.center = (int(screen_x), int(screen_y))
+        hit_radius = max(MOSQUITO_HIT_RADIUS_SCREEN, screen_size // 2)
+        hit_rect = pygame.Rect(0, 0, hit_radius * 2, hit_radius * 2)
+        hit_rect.center = visual_rect.center
+
+        if ref is not None:
+            ref.visible = True
+            ref.screen_rect = hit_rect
+            ref.distance_to_player = distance
+            ref.angle_to_player = world_angle
+
+        self._draw_mosquito_trail(player, horizon, depth_buffer, entity, elapsed, visual_rect.center)
+
+        glow_size = max(screen_size + 8, int(screen_size * 1.35))
+        glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow, (110, 230, 195, 36), glow.get_rect())
+        self.screen.blit(glow, glow.get_rect(center=visual_rect.center))
+
+        sprite = pygame.transform.smoothscale(self._mosquito_sprite(), visual_rect.size).convert_alpha()
+        shade = max(0.34, min(1.18, self._shade_factor(distance, world_angle, player, elapsed) + 0.18))
+        shade_value = max(0, min(255, int(255 * min(1.0, shade))))
+        sprite.fill((shade_value, shade_value, shade_value, 255), special_flags=pygame.BLEND_RGBA_MULT)
+        if shade > 1.0:
+            boost = max(0, min(50, int((shade - 1.0) * 85)))
+            sprite.fill((boost, boost, boost, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+        hit_flash = float(entity.get("hit_flash", 0.0) or 0.0)
+        if time.monotonic() - hit_flash <= 0.16:
+            sprite.fill((120, 20, 20, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+        self.screen.blit(sprite, visual_rect)
+        self._queue_mosquito_health_bar(visual_rect, float(entity.get("hp", MOSQUITO_HP)), float(entity.get("max_hp", MOSQUITO_HP)))
+
+    def _project_mosquito_point(
+        self,
+        x: float,
+        y: float,
+        player,
+        horizon: int,
+        depth_buffer: list[float],
+        elapsed: float,
+        mosquito_id: int,
+    ) -> tuple[float, float, int, float, float] | None:
+        dx = x - player.x
+        dy = y - player.y
+        distance = math.hypot(dx, dy)
+        if distance > MOSQUITO_VISIBLE_DISTANCE:
+            return None
+
+        world_angle = math.atan2(dy, dx)
+        relative_angle = (world_angle - self._player_view_angle(player) + math.pi) % math.tau - math.pi
+        if abs(relative_angle) > HALF_FOV + 0.15:
+            return None
+
+        forward_depth = distance * math.cos(relative_angle)
+        if forward_depth <= RAY_NEAR_CLIP:
+            return None
+
+        screen_x = HALF_WIDTH + math.tan(relative_angle) * DISTANCE_TO_PROJECTION
+        if screen_x < -96 or screen_x > SCREEN_WIDTH + 96:
+            return None
+
+        ray_index = max(0, min(NUM_RAYS - 1, int(screen_x / SCREEN_WIDTH * NUM_RAYS)))
+        left = max(0, ray_index - 2)
+        right = min(NUM_RAYS, ray_index + 3)
+        near_depth = min(depth_buffer[left:right]) if right > left else depth_buffer[ray_index]
+        if distance > near_depth + 0.25:
+            return None
+
+        screen_size = max(8, min(96, int(220 / max(distance, 0.35))))
+        bob = int(math.sin(elapsed * 9.0 + mosquito_id) * 12)
+        screen_y = horizon - screen_size // 2 + bob
+        return screen_x, screen_y, screen_size, distance, world_angle
+
+    def _draw_mosquito_trail(
+        self,
+        player,
+        horizon: int,
+        depth_buffer: list[float],
+        entity: dict,
+        elapsed: float,
+        current_center: tuple[int, int],
+    ) -> None:
+        trail = list(entity.get("trail") or [])
+        if len(trail) <= 1:
+            return
+        ref = entity.get("ref")
+        mosquito_id = getattr(ref, "mosquito_id", 0)
+        points: list[tuple[int, int]] = []
+        for index, (x, y, age) in enumerate(trail[-6:]):
+            projection = self._project_mosquito_point(x, y, player, horizon, depth_buffer, elapsed - max(0.0, trail[-1][2] - age), mosquito_id)
+            if projection is None:
+                continue
+            screen_x, screen_y, size, _distance, _angle = projection
+            points.append((int(screen_x), int(screen_y)))
+            alpha = max(18, min(90, 16 + index * 13))
+            radius = max(2, min(7, size // 8))
+            dot = pygame.Surface((radius * 2 + 2, radius * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(dot, (116, 221, 190, alpha), (radius + 1, radius + 1), radius)
+            self.screen.blit(dot, dot.get_rect(center=(int(screen_x), int(screen_y))))
+
+        if points:
+            points.append(current_center)
+            line_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            pygame.draw.lines(line_surface, (105, 220, 190, 36), False, points, 1)
+            self.screen.blit(line_surface, (0, 0))
+
+    def _draw_mosquito_health_bar(self, visual_rect: pygame.Rect, hp: float, max_hp: float) -> None:
+        max_hp = max(1.0, max_hp)
+        ratio = max(0.0, min(1.0, hp / max_hp))
+        width = max(22, min(58, visual_rect.width + 8))
+        height = 4
+        x = visual_rect.centerx - width // 2
+        y = max(4, visual_rect.top - 9)
+        back = pygame.Rect(x, y, width, height)
+        pygame.draw.rect(self.screen, (54, 10, 12), back)
+        pygame.draw.rect(self.screen, (235, 48, 45), (x, y, int(width * ratio), height))
+        pygame.draw.rect(self.screen, (245, 216, 206), back, 1)
+
+    def _queue_mosquito_health_bar(self, visual_rect: pygame.Rect, hp: float, max_hp: float) -> None:
+        bars = getattr(self, "_dynamic_health_bars", None)
+        if bars is None:
+            return
+        bars.append((visual_rect.copy(), hp, max_hp))
+
+    def draw_dynamic_entity_overlays(self) -> None:
+        for visual_rect, hp, max_hp in getattr(self, "_dynamic_health_bars", []):
+            self._draw_mosquito_health_bar(visual_rect, hp, max_hp)
+
+    def _mosquito_sprite(self) -> pygame.Surface:
+        cached = getattr(self, "_mosquito_sprite_cache", None)
+        if cached is not None:
+            return cached
+
+        path = Path("assets/sprites/mosquito.png")
+        if path.exists():
+            try:
+                cached = pygame.image.load(str(path)).convert_alpha()
+                self._mosquito_sprite_cache = cached
+                return cached
+            except (pygame.error, OSError) as exc:
+                if not getattr(self, "_mosquito_sprite_warning_shown", False):
+                    print(f"[asset warning] failed to load {path}: {exc}")
+                    self._mosquito_sprite_warning_shown = True
+
+        cached = self._fallback_mosquito_sprite()
+        self._mosquito_sprite_cache = cached
+        return cached
+
+    def _fallback_mosquito_sprite(self) -> pygame.Surface:
+        surface = pygame.Surface((64, 64), pygame.SRCALPHA)
+        pygame.draw.ellipse(surface, (126, 210, 190, 68), (7, 16, 23, 17))
+        pygame.draw.ellipse(surface, (126, 210, 190, 68), (34, 16, 23, 17))
+        pygame.draw.ellipse(surface, (18, 23, 22, 255), (25, 18, 14, 28))
+        pygame.draw.ellipse(surface, (73, 88, 75, 255), (28, 11, 8, 10))
+        pygame.draw.line(surface, (151, 235, 204, 220), (32, 14), (32, 47), 2)
+        pygame.draw.line(surface, (25, 28, 26, 230), (29, 31), (13, 43), 2)
+        pygame.draw.line(surface, (25, 28, 26, 230), (35, 31), (51, 43), 2)
+        pygame.draw.line(surface, (25, 28, 26, 210), (29, 38), (16, 54), 1)
+        pygame.draw.line(surface, (25, 28, 26, 210), (35, 38), (48, 54), 1)
+        pygame.draw.circle(surface, (151, 235, 204, 180), (32, 26), 17, 1)
+        pygame.draw.circle(surface, (226, 237, 210, 180), (31, 15), 2)
+        return surface

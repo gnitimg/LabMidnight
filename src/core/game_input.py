@@ -66,6 +66,10 @@ class GameInputMixin:
             if key in (pygame.K_ESCAPE, pygame.K_b, pygame.K_i):
                 self.set_state(STATE_PLAYING)
             return
+        if self.state == STATE_SUCCESS and not self.ui.ending_accepts_input(True):
+            return
+        if self.state == STATE_FAILURE and not self.ui.ending_accepts_input(False):
+            return
         if self.state in (STATE_SUCCESS, STATE_FAILURE):
             if key in (pygame.K_RETURN, pygame.K_SPACE):
                 self.audio.stop_all()
@@ -124,6 +128,8 @@ class GameInputMixin:
             return
         if self.state == STATE_PLAYING:
             if button == 1:
+                if self.mosquito_system.handle_mouse_attack(self, pos):
+                    return
                 self.set_message(self.interaction.interact(self), 4.0)
             elif button == 3:
                 self.toggle_flashlight()
@@ -211,5 +217,3 @@ class GameInputMixin:
         self.player.flashlight_on = not self.player.flashlight_on
         state = "打开" if self.player.flashlight_on else "关闭"
         self.set_message(f"手电已{state}。", 1.6)
-
-

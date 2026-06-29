@@ -66,6 +66,9 @@ class Player:
     flashlight_on: bool = False
     speed: float = PLAYER_SPEED
     rotation_speed: float = PLAYER_ROTATION_SPEED
+    sanity_damage_from: float = SANITY_MAX
+    sanity_damage_flash_until: float = 0.0
+    sanity_shake_until: float = 0.0
     inventory: set[str] = field(default_factory=set)
     flags: dict[str, bool] = field(default_factory=default_flags)
 

@@ -198,7 +198,7 @@ class InteractionTriggerMixin:
         player = game.player
         if not player.flags.get("old_corridor_stuck", False):
             game.audio.play("error")
-            return "先去试试西侧安全门。别乱按。"
+            return "先去试试西侧安全出口。别乱按。"
         if not player.has_item("utility_badge"):
             game.audio.play("error")
             return "箱门被铁丝缠住。得找张硬卡撬开。"
@@ -212,7 +212,7 @@ class InteractionTriggerMixin:
         player = game.player
         if not player.has_item("maintenance_pass"):
             game.audio.play("error")
-            return "西侧安全门不认我。先找旧连廊通行牌。"
+            return "西侧安全出口不认我。先找旧连廊通行牌。"
         if not player.flags.get("old_corridor_stuck", False):
             player.flags["old_corridor_stuck"] = True
             game.audio.play("error")
@@ -225,5 +225,3 @@ class InteractionTriggerMixin:
         game.audio.play("door_open")
         game.enter_success()
         return "门缝够了。我挤出去，外面的风终于吹到脸上。"
-
-

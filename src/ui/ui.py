@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
+import time
 
 import pygame
 
 from src.ui.ending import FAILURE_TITLE, SUCCESS_TITLE
+from src.ui.ending_video import EndingVideoPlayer
 from src.settings import (
     COLOR_DANGER,
     COLOR_MUTED,
@@ -15,6 +18,7 @@ from src.settings import (
     COLOR_TEXT,
     COLOR_WARNING,
     COLOR_WHITE,
+    FLASHLIGHT_MAX,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
 )
@@ -45,7 +49,7 @@ ITEM_DESCRIPTIONS = {
     "fuse": "看起来正好能装进配电箱的空槽里。",
     "plastic_card": "几张硬塑料片。撬配电箱应该够用。",
     "old_corridor_note": "一楼登记册里的便签：二楼旧连廊。",
-    "maintenance_pass": "旧连廊检修通行牌，仅限二层西侧安全门。",
+    "maintenance_pass": "旧连廊检修通行牌，仅限二层西侧安全出口。",
     "utility_badge": "废弃工牌。今晚它比门禁卡有用。",
     "access_card": "卡面上没有姓名，只有一串被刮花的编号。",
     "map": "四层平面图，有几处房间被红笔圈了出来。",
@@ -56,6 +60,7 @@ ITEM_DESCRIPTIONS = {
 class UI:
     def __init__(self) -> None:
         self.font_cache: dict[tuple[int, bool], pygame.font.Font] = {}
+        self.ending_video = EndingVideoPlayer()
 
     def font(self, size: int, bold: bool = False) -> pygame.font.Font:
         key = (size, bold)
@@ -110,8 +115,23 @@ class UI:
 
     def draw_hud(self, surface: pygame.Surface, player, message: str, prompt: str, floor: int = 4) -> None:
         self._draw_bar(surface, 18, 16, "HP", player.hp, 100, (91, 153, 112))
-        self._draw_bar(surface, 18, 44, "SAN", player.sanity, 100, (92, 143, 190))
-        self._draw_bar(surface, 18, 72, "电量", player.flashlight_power, 100, (216, 184, 92))
+        now = time.monotonic()
+        san_shake = 0
+        if now < getattr(player, "sanity_shake_until", 0.0):
+            san_shake = int(math.sin(now * 95.0) * 4)
+        san_flash = max(0.0, min(1.0, (getattr(player, "sanity_damage_flash_until", 0.0) - now) / 0.7))
+        self._draw_bar(
+            surface,
+            18 + san_shake,
+            44,
+            "SAN",
+            player.sanity,
+            100,
+            (92, 143, 190),
+            previous_value=getattr(player, "sanity_damage_from", player.sanity),
+            damage_flash=san_flash,
+        )
+        self._draw_bar(surface, 18, 72, "电量", player.flashlight_power, FLASHLIGHT_MAX, (216, 184, 92))
 
         flashlight = "开" if player.flashlight_on and player.flashlight_power > 0 else "关"
         self.draw_text(surface, f"手电：{flashlight}", (18, 102), 19, COLOR_MUTED)
@@ -127,13 +147,31 @@ class UI:
         elif message:
             self._draw_center_panel(surface, message, SCREEN_HEIGHT - 96, COLOR_TEXT)
 
-    def _draw_bar(self, surface: pygame.Surface, x: int, y: int, label: str, value: float, maximum: float, color: tuple[int, int, int]) -> None:
+    def _draw_bar(
+        self,
+        surface: pygame.Surface,
+        x: int,
+        y: int,
+        label: str,
+        value: float,
+        maximum: float,
+        color: tuple[int, int, int],
+        *,
+        previous_value: float | None = None,
+        damage_flash: float = 0.0,
+    ) -> None:
         width, height = 180, 16
         self.draw_text(surface, label, (x, y - 2), 17, COLOR_TEXT, bold=True)
         back_rect = pygame.Rect(x + 54, y, width, height)
         pygame.draw.rect(surface, (23, 28, 28), back_rect)
         fill_width = int(width * max(0.0, min(1.0, value / maximum)))
         pygame.draw.rect(surface, color, (x + 54, y, fill_width, height))
+        if previous_value is not None and damage_flash > 0.0:
+            previous_width = int(width * max(0.0, min(1.0, previous_value / maximum)))
+            if previous_width > fill_width:
+                flash = pygame.Surface((previous_width - fill_width, height), pygame.SRCALPHA)
+                flash.fill((226, 54, 47, int(190 * damage_flash)))
+                surface.blit(flash, (x + 54 + fill_width, y))
         pygame.draw.rect(surface, COLOR_PANEL_EDGE, back_rect, 1)
 
     def _draw_center_panel(self, surface: pygame.Surface, text: str, y: int, color: tuple[int, int, int]) -> None:
@@ -229,10 +267,39 @@ class UI:
             y += 66
 
     def draw_ending(self, surface: pygame.Surface, success: bool) -> None:
+        if self.ending_video.draw(surface, success):
+            if success and self.ending_video.accepts_input(True):
+                self._draw_ending_video_hint(surface)
+            elif not success and self.ending_video.accepts_input(False):
+                self._draw_failure_retry_hint(surface)
+            return
         if success:
             self._draw_success_scene(surface)
         else:
             self._draw_failure_scene(surface)
+
+    def reset_ending_video(self, success: bool) -> None:
+        self.ending_video.reset(success)
+
+    def ending_accepts_input(self, success: bool) -> bool:
+        return self.ending_video.accepts_input(success)
+
+    def _draw_ending_video_hint(self, surface: pygame.Surface) -> None:
+        text = "Enter / Space 返回    R 重新开始"
+        rendered = self.font(18, False).render(text, True, (212, 218, 208))
+        rendered.set_alpha(110)
+        rect = rendered.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 28))
+        shadow = pygame.Surface((rect.width + 32, rect.height + 16), pygame.SRCALPHA)
+        shadow.fill((0, 0, 0, 70))
+        surface.blit(shadow, shadow.get_rect(center=rect.center))
+        surface.blit(rendered, rect)
+
+    def _draw_failure_retry_hint(self, surface: pygame.Surface) -> None:
+        text = "R 重试    Enter / Esc 退出"
+        rendered = self.font(22, False).render(text, True, (218, 222, 216))
+        rendered.set_alpha(210)
+        rect = rendered.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 56))
+        surface.blit(rendered, rect)
 
     def _draw_success_scene(self, surface: pygame.Surface) -> None:
         surface.fill((214, 221, 210))

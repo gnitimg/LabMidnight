@@ -80,6 +80,12 @@ class MapEditorSelectionMixin:
         if rect is None:
             return None
         min_x, min_y, max_x, max_y = rect
+        room_ids = self.selection_items["rooms"] if self.selection_rect == rect else set()
+        rooms = [
+            Room(0, room.x - min_x, room.y - min_y, room.w, room.h, room.name, room.number)
+            for room in self.state.rooms
+            if room.room_id in room_ids
+        ]
         terrain = [
             ((x - min_x, y - min_y), self._terrain_symbol_at((x, y)))
             for y in range(min_y, max_y + 1)
@@ -103,7 +109,7 @@ class MapEditorSelectionMixin:
             "label": "area",
             "width": max_x - min_x + 1,
             "height": max_y - min_y + 1,
-            "rooms": [],
+            "rooms": rooms,
             "terrain": terrain,
             "doors": doors,
             "objects": objects,
@@ -456,10 +462,11 @@ class MapEditorSelectionMixin:
         else:
             self.drag_mode = "move_room"
 
-    def _begin_box_selection(self, cell: tuple[int, int]) -> None:
+    def _begin_box_selection(self, cell: tuple[int, int], include_terrain: bool = False) -> None:
         self._clear_individual_selection()
         self.selection_rect = None
         self.selection_items = self._empty_selection_items()
+        self.box_select_include_terrain = include_terrain
         self.drag_mode = "box_select"
         self.drag_start_cell = cell
         self.drag_current_cell = cell
@@ -468,7 +475,7 @@ class MapEditorSelectionMixin:
         if self.drag_start_cell is None or self.drag_current_cell is None:
             return
         rect = self._normalized_cell_rect(self.drag_start_cell, self.drag_current_cell)
-        self._select_area(rect)
+        self._select_area(rect, include_terrain=self.box_select_include_terrain)
 
     def _begin_area_move(self, cell: tuple[int, int]) -> bool:
         if self.selection_rect is None or not self._cell_in_rect(cell, self.selection_rect):
@@ -486,7 +493,10 @@ class MapEditorSelectionMixin:
     def _finish_area_move(self) -> None:
         if self.selection_rect is None:
             return
-        self.selection_items = self._collect_area_items(self.selection_rect)
+        self.selection_items = self._collect_area_items(
+            self.selection_rect,
+            include_terrain=self.selection_include_terrain,
+        )
         count = self._selection_item_count(self.selection_items)
         if count == 0:
             self._clear_area_selection()
@@ -519,6 +529,7 @@ class MapEditorSelectionMixin:
         self.state.doors = self._move_cell_dict_snapshot("doors", dx, dy)
         self.state.objects = self._move_cell_dict_snapshot("objects", dx, dy)
         self.state.overrides = self._move_cell_dict_snapshot("overrides", dx, dy)
+        self._apply_moved_terrain(dx, dy)
 
         start_cell = self.selection_move_snapshot.get("start_cell")
         start_selected = bool(self.selection_move_snapshot.get("start_selected"))
@@ -541,6 +552,20 @@ class MapEditorSelectionMixin:
                 moved[(x + dx, y + dy)] = symbol
         return moved
 
+    def _apply_moved_terrain(self, dx: int, dy: int) -> None:
+        if self.selection_move_snapshot is None:
+            return
+        terrain_cells = self.selection_move_snapshot.get("terrain_cells")
+        selected_terrain = self.selection_move_snapshot.get("selected_terrain")
+        if not isinstance(terrain_cells, set) or not isinstance(selected_terrain, dict):
+            return
+        for cell in terrain_cells:
+            self.state.overrides[cell] = "."
+        for (x, y), symbol in selected_terrain.items():
+            target = (x + dx, y + dy)
+            if symbol in OVERRIDE_SYMBOLS:
+                self.state.overrides[target] = symbol
+
     def _capture_selection_move_snapshot(self) -> dict[str, object]:
         room_ids = self.selection_items["rooms"]
         door_cells = self.selection_items["doors"]
@@ -557,38 +582,67 @@ class MapEditorSelectionMixin:
             "selected_doors": {cell: symbol for cell, symbol in self.state.doors.items() if cell in door_cells},
             "base_objects": {cell: symbol for cell, symbol in self.state.objects.items() if cell not in object_cells},
             "selected_objects": {cell: symbol for cell, symbol in self.state.objects.items() if cell in object_cells},
-            "base_overrides": {cell: symbol for cell, symbol in self.state.overrides.items() if cell not in override_cells},
+            "base_overrides": {
+                cell: symbol
+                for cell, symbol in self.state.overrides.items()
+                if cell not in override_cells and cell not in self.selection_items["terrain"]
+            },
             "selected_overrides": {cell: symbol for cell, symbol in self.state.overrides.items() if cell in override_cells},
+            "selected_terrain": {
+                cell: self._terrain_symbol_at(cell)
+                for cell in self.selection_items["terrain"]
+            },
+            "terrain_cells": set(self.selection_items["terrain"]),
             "start_cell": self.state.start_cell,
             "start_selected": bool(self.selection_items["start"]),
         }
 
-    def _select_area(self, rect: tuple[int, int, int, int]) -> None:
+    def _select_area(self, rect: tuple[int, int, int, int], include_terrain: bool = False) -> None:
         self.selection_rect = rect
-        self.selection_items = self._collect_area_items(rect)
+        self.selection_include_terrain = include_terrain
+        self.selection_items = self._collect_area_items(rect, include_terrain=include_terrain)
         count = self._selection_item_count(self.selection_items)
         if count == 0:
             self._clear_area_selection()
             self.state.status = "Selection is empty."
             return
         self._clear_individual_selection()
-        self.state.status = f"Selected area ({count} item(s)). Drag inside it to move."
+        detail = ", including terrain" if include_terrain else ""
+        self.state.status = f"Selected area ({count} item(s){detail}). Drag inside it to move."
 
-    def _collect_area_items(self, rect: tuple[int, int, int, int]) -> dict[str, object]:
+    def _collect_area_items(self, rect: tuple[int, int, int, int], include_terrain: bool = False) -> dict[str, object]:
         items = self._empty_selection_items()
 
         object_cells = items["objects"]
         for cell, placement in self.state.objects.items():
             if any(self._cell_in_rect(footprint_cell, rect) for footprint_cell in self.state.object_footprint_cells(cell, placement)):
                 object_cells.add(cell)
-        if object_cells:
+        if object_cells and not include_terrain:
             return items
 
         door_cells = items["doors"]
         for cell in self.state.doors:
             if self._cell_in_rect(cell, rect):
                 door_cells.add(cell)
-        if door_cells:
+        if door_cells and not include_terrain:
+            return items
+
+        if include_terrain:
+            terrain_cells = items["terrain"]
+            min_x, min_y, max_x, max_y = rect
+            for y in range(min_y, max_y + 1):
+                for x in range(min_x, max_x + 1):
+                    if self.state.in_bounds(x, y):
+                        terrain_cells.add((x, y))
+            for cell in self.state.overrides:
+                if self._cell_in_rect(cell, rect):
+                    items["overrides"].add(cell)
+            room_ids = items["rooms"]
+            for room in self.state.rooms:
+                if self._room_intersects_rect(room, rect):
+                    room_ids.add(room.room_id)
+            if self.state.start_cell is not None and self._cell_in_rect(self.state.start_cell, rect):
+                items["start"] = True
             return items
 
         for cell in self.state.overrides:
@@ -607,13 +661,19 @@ class MapEditorSelectionMixin:
 
     def _delete_area_selection(self) -> None:
         room_ids = self.selection_items["rooms"]
+        terrain_cells = self.selection_items["terrain"]
         self.state.rooms = [room for room in self.state.rooms if room.room_id not in room_ids]
         for cell in list(self.selection_items["doors"]):
             self.state.doors.pop(cell, None)
         for cell in list(self.selection_items["objects"]):
             self.state.objects.pop(cell, None)
-        for cell in list(self.selection_items["overrides"]):
-            self.state.overrides.pop(cell, None)
+        if terrain_cells:
+            for cell in list(terrain_cells):
+                if self.state.in_bounds(*cell):
+                    self.state.overrides[cell] = "."
+        else:
+            for cell in list(self.selection_items["overrides"]):
+                self.state.overrides.pop(cell, None)
         if self.selection_items["start"]:
             self.state.start_cell = None
         self._clear_area_selection()
@@ -629,6 +689,7 @@ class MapEditorSelectionMixin:
         self.selection_rect = None
         self.selection_items = self._empty_selection_items()
         self.selection_move_snapshot = None
+        self.selection_include_terrain = False
 
     def _empty_selection_items(self) -> dict[str, object]:
         return {
@@ -636,12 +697,13 @@ class MapEditorSelectionMixin:
             "doors": set(),
             "objects": set(),
             "overrides": set(),
+            "terrain": set(),
             "start": False,
         }
 
     def _selection_item_count(self, items: dict[str, object]) -> int:
         total = 0
-        for key in ("rooms", "doors", "objects", "overrides"):
+        for key in ("rooms", "doors", "objects", "overrides", "terrain"):
             values = items.get(key)
             if isinstance(values, set):
                 total += len(values)

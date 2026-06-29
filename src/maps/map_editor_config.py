@@ -93,12 +93,18 @@ FIXED_OBJECT_STYLES = {
         "height": 2.0,
         "placement_height": 1.5,
     },
+    "whiteboard": {
+        "width": 0.08,
+        "height": 1.2,
+        "placement_height": 1.0,
+    },
     "elevator": {
+        "width": 0.08,
         "height": 3.0,
         "placement_height": 0.0,
     },
 }
-WALL_FACING_OBJECT_IDS = {"blackboard", "elevator"}
+WALL_FACING_OBJECT_IDS = {"blackboard", "elevator", "whiteboard"}
 WALL_FACING_ROTATIONS = (
     (0, -1, 0),
     (1, 0, 270),
@@ -175,5 +181,4 @@ def existing_room_meta_path_for_floor(floor: int) -> Path:
     if floor == TOP_FLOOR and LEGACY_ROOM_META_PATH.exists():
         return LEGACY_ROOM_META_PATH
     return path
-
 

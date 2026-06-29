@@ -34,6 +34,11 @@ class InteractionFlowMixin:
         x, y = cell
         role = self.game_map.door_role_at(x, y)
 
+        if self.game_map.is_open_door(x, y):
+            self.game_map.close_door(x, y)
+            game.audio.play("door_open", volume=0.7, cooldown=0.15)
+            return "你把门推回去了。"
+
         if tile == TILE_GUARD_DOOR:
             if game.current_floor == 3 and not player.flags.get("found_3f_security_code", False):
                 game.audio.play("error")
@@ -99,7 +104,7 @@ class InteractionFlowMixin:
                 player.flags["checked_lobby_exit"] = True
                 game.audio.play("error")
                 return LOBBY_EXIT_LOCKED_MESSAGE
-            if game.current_floor == 2 and self._is_stairwell_exit(cell) and player.has_item("old_corridor_note"):
+            if game.current_floor == 2 and self._is_old_corridor_exit(cell):
                 return self._trigger_old_corridor_door(game)
             if game.current_floor > BUILDING_BOTTOM_FLOOR:
                 if not player.has_item("stair_key") and not player.has_item("lab_key"):
@@ -266,3 +271,6 @@ class InteractionFlowMixin:
         x, _y = cell
         return x > self.game_map.width * 0.5
 
+    def _is_old_corridor_exit(self, cell: tuple[int, int]) -> bool:
+        x, _y = cell
+        return x < self.game_map.width * 0.5

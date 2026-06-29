@@ -22,6 +22,10 @@ SOUND_FILES = {
     "power_restore": "power_restore.wav",
     "error": "error.wav",
     "sanity_low": "sanity_low.wav",
+    "mosquito_buzz": "mosquito_buzz.wav",
+    "mosquito_hit": "mosquito_hit.wav",
+    "mosquito_die": "mosquito_die.wav",
+    "mosquito_bite": "mosquito_bite.wav",
 }
 
 
@@ -87,11 +91,41 @@ class AudioManager:
             channel.set_volume(volume)
             self.channels[key] = channel
 
+    def play_spatial_loop(
+        self,
+        key: str,
+        channel_key: str,
+        left_volume: float,
+        right_volume: float,
+    ) -> None:
+        if not self.enabled:
+            return
+        left_volume = max(0.0, min(1.0, left_volume))
+        right_volume = max(0.0, min(1.0, right_volume))
+        channel = self.channels.get(channel_key)
+        if channel is not None and channel.get_busy():
+            channel.set_volume(left_volume, right_volume)
+            return
+        sound = self.sounds.get(key)
+        if sound is None:
+            self._report_missing(key)
+            return
+        channel = sound.play(loops=-1)
+        if channel is not None:
+            channel.set_volume(left_volume, right_volume)
+            self.channels[channel_key] = channel
+
     def stop_loop(self, key: str) -> None:
         channel = self.channels.get(key)
         if channel is not None:
             channel.stop()
             self.channels.pop(key, None)
+
+    def stop_channel(self, channel_key: str) -> None:
+        channel = self.channels.get(channel_key)
+        if channel is not None:
+            channel.stop()
+            self.channels.pop(channel_key, None)
 
     def stop_all(self) -> None:
         if self.enabled:

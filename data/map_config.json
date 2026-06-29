@@ -2,7 +2,7 @@
   "initial_player": {
     "hp": 100,
     "sanity": 100,
-    "flashlight_power": 100,
+    "flashlight_power": 200,
     "speed": 6.0
   }
 }

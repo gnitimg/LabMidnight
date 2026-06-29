@@ -29,6 +29,12 @@ class GameMapDoorMixin:
                 self.open_doors.add(cell)
                 self.door_open_progress.setdefault(cell, 0.0)
 
+    def close_door(self, x: int, y: int) -> None:
+        if self.is_door(x, y):
+            for cell in self.door_group_at(x, y):
+                self.open_doors.discard(cell)
+                self.door_open_progress.pop(cell, None)
+
     def update_doors(self, dt: float) -> None:
         if not self.door_open_progress:
             return
@@ -69,4 +75,3 @@ class GameMapDoorMixin:
         if north_wall and south_wall and (west_open or east_open):
             return "vertical"
         return "vertical"
-
