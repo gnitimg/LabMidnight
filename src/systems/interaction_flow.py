@@ -104,7 +104,7 @@ class InteractionFlowMixin:
                 player.flags["checked_lobby_exit"] = True
                 game.audio.play("error")
                 return LOBBY_EXIT_LOCKED_MESSAGE
-            if game.current_floor == 2 and self._is_stairwell_exit(cell) and player.has_item("old_corridor_note"):
+            if game.current_floor == 2 and self._is_old_corridor_exit(cell):
                 return self._trigger_old_corridor_door(game)
             if game.current_floor > BUILDING_BOTTOM_FLOOR:
                 if not player.has_item("stair_key") and not player.has_item("lab_key"):
@@ -270,3 +270,7 @@ class InteractionFlowMixin:
     def _is_stairwell_exit(self, cell: tuple[int, int]) -> bool:
         x, _y = cell
         return x > self.game_map.width * 0.5
+
+    def _is_old_corridor_exit(self, cell: tuple[int, int]) -> bool:
+        x, _y = cell
+        return x < self.game_map.width * 0.5

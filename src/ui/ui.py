@@ -49,7 +49,7 @@ ITEM_DESCRIPTIONS = {
     "fuse": "看起来正好能装进配电箱的空槽里。",
     "plastic_card": "几张硬塑料片。撬配电箱应该够用。",
     "old_corridor_note": "一楼登记册里的便签：二楼旧连廊。",
-    "maintenance_pass": "旧连廊检修通行牌，仅限二层西侧安全门。",
+    "maintenance_pass": "旧连廊检修通行牌，仅限二层西侧安全出口。",
     "utility_badge": "废弃工牌。今晚它比门禁卡有用。",
     "access_card": "卡面上没有姓名，只有一串被刮花的编号。",
     "map": "四层平面图，有几处房间被红笔圈了出来。",

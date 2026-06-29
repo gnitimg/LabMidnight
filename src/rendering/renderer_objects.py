@@ -8,6 +8,7 @@ import pygame
 
 from src.rendering.renderer_config import (
     DEFAULT_OCCLUSION_SLACK,
+    FIXED_WALL_DECAL_OBJECT_IDS,
     SMALL_OBJECT_TOP_HIDE_DISTANCE,
     SMALL_OBJECT_TOP_MAX_HEIGHT,
     THIN_PANEL_NEAR_CLIP,
@@ -32,6 +33,7 @@ from src.settings import (
     TILE_WALL,
     VERTICAL_PROJECTION,
     VERTICAL_UNITS_PER_TILE,
+    WALL_TILES,
 )
 from src.systems.mosquito_system import (
     MOSQUITO_HIT_RADIUS_SCREEN,
@@ -53,9 +55,9 @@ class RendererObjectMixin:
             decal
             for anchor, obj in self.game_map.objects.items()
             if anchor not in self.game_map.picked_objects
-            and obj.object_id == "blackboard"
-            for decal in [self._blackboard_wall_decal(anchor, obj)]
-            if decal is not None
+            and obj.object_id in FIXED_WALL_DECAL_OBJECT_IDS
+            for decal in [self._wall_object_decal(anchor, obj)]
+            if decal is not None and self._wall_decal_has_backing(decal)
         ]
         if not decals:
             return
@@ -79,7 +81,7 @@ class RendererObjectMixin:
                 )
                 break
 
-    def _blackboard_wall_decal(self, anchor: tuple[int, int], obj) -> dict | None:
+    def _wall_object_decal(self, anchor: tuple[int, int], obj) -> dict | None:
         rotation = obj.rotation % 360
         x, y = anchor
         length = max(0.05, obj.length)
@@ -98,6 +100,15 @@ class RendererObjectMixin:
         if rotation == 270:
             return {"axis": "y", "wall_cell_x": x + 1, "fixed": float(x + 1), "start": float(y), "length": length, "reverse": True, "texture": texture, "bottom_z": bottom_z, "top_z": top_z}
         return None
+
+    def _wall_decal_has_backing(self, decal: dict) -> bool:
+        start = int(math.floor(decal["start"]))
+        end = int(math.ceil(decal["start"] + decal["length"]))
+        if decal["axis"] == "x":
+            wall_y = int(decal["wall_cell_y"])
+            return any(self.game_map.tile_at(x, wall_y) in WALL_TILES for x in range(start, end))
+        wall_x = int(decal["wall_cell_x"])
+        return any(self.game_map.tile_at(wall_x, y) in WALL_TILES for y in range(start, end))
 
     def _wall_decal_u(self, decal: dict, cell: tuple[int, int], hit_x: float, hit_y: float) -> float | None:
         if decal["axis"] == "x":
@@ -165,14 +176,19 @@ class RendererObjectMixin:
         for anchor, obj in self.game_map.objects.items():
             if anchor in self.game_map.picked_objects:
                 continue
-            if obj.object_id == "blackboard":
-                continue
             x0, y0, x1, y1 = self.game_map.object_bounds(anchor, obj)
             bottom_z = obj.placement_height * VERTICAL_UNITS_PER_TILE
             asset_id = obj.asset_id or obj.object_id
             object_height = self._object_height_units(obj)
             object_top_z = bottom_z + object_height
             if object_top_z <= bottom_z:
+                continue
+
+            if obj.object_id in FIXED_WALL_DECAL_OBJECT_IDS:
+                decal = self._wall_object_decal(anchor, obj)
+                if decal is not None and self._wall_decal_has_backing(decal):
+                    continue
+                self._append_fixed_world_panel(drawables, player, anchor, obj, asset_id, bottom_z, object_top_z)
                 continue
 
             thin_panel = self._object_is_thin_panel(obj, x0, y0, x1, y1)
@@ -235,6 +251,40 @@ class RendererObjectMixin:
                     stable_vertical=stable_vertical,
                     object_depth_buffer=panel_depth_buffer,
                 )
+
+    def _append_fixed_world_panel(
+        self,
+        drawables: list[tuple[float, str, tuple]],
+        player,
+        anchor: tuple[int, int],
+        obj,
+        asset_id: str,
+        bottom_z: float,
+        object_top_z: float,
+    ) -> None:
+        for face, _normal, p0, p1, _side_light in self._object_face_data(anchor, obj):
+            if face != "front":
+                continue
+            center_x = (p0[0] + p1[0]) * 0.5
+            center_y = (p0[1] + p1[1]) * 0.5
+            texture = self._object_face_texture(asset_id, "front")
+            distance_key = (center_x - player.x) ** 2 + (center_y - player.y) ** 2
+            drawables.append((
+                distance_key,
+                "panel",
+                (
+                    texture,
+                    p0,
+                    p1,
+                    bottom_z,
+                    object_top_z,
+                    1.0,
+                    THIN_PANEL_OCCLUSION_SLACK,
+                    THIN_PANEL_NEAR_CLIP,
+                    True,
+                ),
+            ))
+            return
 
     def _object_height_units(self, obj) -> float:
         return max(0.05, obj.height) * VERTICAL_UNITS_PER_TILE

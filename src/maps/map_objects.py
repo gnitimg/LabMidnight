@@ -37,7 +37,13 @@ FIXED_OBJECT_STYLES = {
         "height": 2.0,
         "placement_height": 1.5,
     },
+    "whiteboard": {
+        "width": 0.08,
+        "height": 1.2,
+        "placement_height": 1.0,
+    },
     "elevator": {
+        "width": 0.08,
         "height": 3.0,
         "placement_height": 0.0,
     },
@@ -270,5 +276,4 @@ def _bool_value(value: object) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "on"}
     return bool(value)
-
 

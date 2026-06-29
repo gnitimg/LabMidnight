@@ -236,8 +236,8 @@ class InteractionTargetingMixin:
                         return "按 Space 上二楼"
                     return "楼梯间。先看看大厅有没有线索"
                 return "按 Space 推大厅玻璃门"
-            if self.game_map.floor == 2 and self._is_stairwell_exit(cell) and player.has_item("old_corridor_note"):
-                return "按 Space 检查西侧安全门"
+            if self.game_map.floor == 2 and self._is_old_corridor_exit(cell):
+                return "按 Space 检查西侧安全出口"
             if not player.has_item("stair_key") and not player.has_item("lab_key"):
                 return "安全出口需要机械钥匙"
             return "按 Space 进入安全出口"
