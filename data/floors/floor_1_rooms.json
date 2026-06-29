@@ -69,8 +69,8 @@
     },
     {
       "room_id": 10,
-      "x": 78,
-      "y": 8,
+      "x": 36,
+      "y": 31,
       "w": 72,
       "h": 14,
       "name": "Room 10",
@@ -13329,6 +13329,23 @@
       "placement_height": 0.0
     },
     {
+      "x": 48,
+      "y": 9,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "pickup_item": "battery",
+      "resource_role": "optional",
+      "interaction_prompt": "按 Space 拾取电池",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3
+    },
+    {
       "x": 50,
       "y": 2,
       "object_id": "desk",
@@ -13567,6 +13584,21 @@
       "width": 1.0,
       "height": 1.2,
       "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 21,
+      "object_id": "register_book",
+      "rotation": 0,
+      "length": 0.8,
+      "width": 0.55,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "lobby_register_note",
+      "resource_role": "required",
+      "interaction_prompt": "按 Space 翻登记册"
     },
     {
       "x": 59,
@@ -13737,23 +13769,6 @@
       "width": 1.0,
       "height": 1.2,
       "placement_height": 0.0
-    },
-    {
-      "x": 64,
-      "y": 16,
-      "object_id": "battery",
-      "rotation": 0,
-      "length": 0.35,
-      "width": 0.18,
-      "height": 0.12,
-      "placement_height": 0.05,
-      "element_type": "pickup",
-      "pickup_item": "battery",
-      "resource_role": "optional",
-      "interaction_prompt": "按 Space 拾取电池",
-      "remove_on_pickup": true,
-      "random_drop": true,
-      "drop_count": 3
     },
     {
       "x": 71,
@@ -14733,6 +14748,23 @@
       "placement_height": 0.0
     },
     {
+      "x": 106,
+      "y": 14,
+      "object_id": "battery",
+      "rotation": 0,
+      "length": 0.35,
+      "width": 0.18,
+      "height": 0.12,
+      "placement_height": 0.05,
+      "element_type": "pickup",
+      "pickup_item": "battery",
+      "resource_role": "optional",
+      "interaction_prompt": "按 Space 拾取电池",
+      "remove_on_pickup": true,
+      "random_drop": true,
+      "drop_count": 3
+    },
+    {
       "x": 107,
       "y": 2,
       "object_id": "desk",
@@ -14811,38 +14843,6 @@
       "width": 1.0,
       "height": 1.2,
       "placement_height": 0.0
-    },
-    {
-      "x": 108,
-      "y": 20,
-      "object_id": "register_book",
-      "rotation": 0,
-      "length": 0.8,
-      "width": 0.55,
-      "height": 0.12,
-      "placement_height": 0.05,
-      "element_type": "trigger",
-      "is_trigger": true,
-      "trigger_id": "lobby_register_note",
-      "resource_role": "required",
-      "interaction_prompt": "按 Space 翻登记册"
-    },
-    {
-      "x": 110,
-      "y": 2,
-      "object_id": "battery",
-      "rotation": 0,
-      "length": 0.35,
-      "width": 0.18,
-      "height": 0.12,
-      "placement_height": 0.05,
-      "element_type": "pickup",
-      "pickup_item": "battery",
-      "resource_role": "optional",
-      "interaction_prompt": "按 Space 拾取电池",
-      "remove_on_pickup": true,
-      "random_drop": true,
-      "drop_count": 3
     },
     {
       "x": 112,
