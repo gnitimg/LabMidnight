@@ -51,6 +51,7 @@ class Game(GameInputMixin, GameFloorMixin, GameRuntimeMixin):
         self.menu_selected = 0
         self.show_instructions = False
         self.started_at = time.monotonic()
+        self.floor_entered_at = self.started_at
         self.message = ""
         self.message_until = 0.0
         self.low_sanity_warned = False
@@ -84,6 +85,7 @@ class Game(GameInputMixin, GameFloorMixin, GameRuntimeMixin):
         )
         self._bind_floor_systems()
         self.started_at = time.monotonic()
+        self.floor_entered_at = self.started_at
         self.message = "凌晨两点，空调停了。断电了，我得出去。"
         self.message_until = time.monotonic() + 5.0
         self.low_sanity_warned = False

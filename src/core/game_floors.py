@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from src.maps.map_data import GameMap
 from src.rendering.renderer import RaycastingRenderer
 from src.settings import (
@@ -147,6 +149,7 @@ class GameFloorMixin:
         self.player.angle = angle
         self.player.reset_vertical_look()
         self._bind_floor_systems()
+        self.floor_entered_at = time.monotonic()
         self._clear_floor_transition()
         self.set_state(STATE_PLAYING)
         self.set_message(f"你到了 {self.current_floor} 层。", 3.0)

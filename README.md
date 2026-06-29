@@ -1,7 +1,5 @@
 # LabMidnight
 
-[]()
-
 > 加班累了是吗 -- 基于 Python + Pygame 的第一人称伪 3D 恐怖解谜 RPG Demo
 
 ## 1. 项目概览
@@ -175,3 +173,70 @@
 | 音效 | 蚊子嗡嗡声有距离和左右声道变化 |
 | 结局 | 成功/失败视频只播一遍，播放前有黑场淡入 |
 | 容错 | 缺少非关键资源时不崩溃 |
+
+## 12. 源码结构
+
+```
+src/
+├── __init__.py
+├── settings.py                          全局常量与配置（分辨率、FOV、物理参数、颜色、状态码）
+│
+├── core/                                游戏核心逻辑
+│   ├── game.py                          游戏主循环与状态机编排（菜单/暂停/结算切换）
+│   ├── game_input.py                    输入事件处理（键盘、鼠标在各状态下的响应）
+│   ├── game_floors.py                   多楼层管理（楼层加载/保存、电源状态、电梯交互）
+│   ├── game_runtime.py                  每帧更新（持续输入、玩家移动、门更新、蚊子系统、理智衰减）
+│   └── player.py                        玩家数据模型（位置、朝向、物品栏、手电、SAN值、剧情标记）
+│
+├── rendering/                           射线投射渲染引擎
+│   ├── renderer.py                      渲染器主类（组合各Mixin，协调整体绘制流程）
+│   ├── renderer_config.py               渲染器共享常量（门视觉比例、遮挡松弛值等）
+│   ├── renderer_raycast.py              DDA 射线投射算法（逐列光线步进、墙壁碰撞检测）
+│   ├── renderer_planes.py               地板与天花板纹理投影（行投射纹理映射、缓存）
+│   ├── renderer_projection.py           视角投影计算（地平线、视图基向量、屏幕→世界坐标射线求交）
+│   ├── renderer_doors.py                门的渲染（开门面板绘制、动画进度、双扇门宽度）
+│   ├── renderer_lighting.py             光照与手电效果（暗度遮罩、光束椭圆衰减、低电闪烁）
+│   └── renderer_objects.py              场景物体渲染（墙面贴花、物体精灵图、蚊子billboard、血条、拖尾）
+│
+├── maps/                                地图与编辑器
+│   ├── map_data.py                      GameMap 主类（组合构建/碰撞/门/出生点Mixin）
+│   ├── map_objects.py                   地图物体模型（MapObject数据类、物体模板、元素类型）
+│   ├── map_paths.py                     地图文件路径管理与玩家初始配置加载
+│   ├── game_map_build.py                地图构建（从文本布局解析网格、门、物体）
+│   ├── game_map_collision.py            碰撞检测（网格通行判断、玩家/物体/门碰撞体积测试）
+│   ├── game_map_doors.py                门状态管理（开/关/可通行判断、进度更新、分组索引）
+│   ├── game_map_spawn.py                出生点与楼层传送坐标计算（出口/电梯最优站位与朝向）
+│   ├── map_editor.py                    地图编辑器主类（Pygame可视化编辑器）
+│   ├── map_editor_config.py             编辑器常量（窗口尺寸、颜色、工具栏参数）
+│   ├── map_editor_models.py             编辑器数据模型（Room、ObjectPlacement数据类）
+│   ├── map_editor_state.py              编辑器可变状态（楼层网格、房间、门、物体、选中项）
+│   ├── map_editor_state_grid.py         网格与房间操作（添加/删除/重命名、格子地形维护）
+│   ├── map_editor_state_doors.py        门状态操作（放置/删除、分组探测、朝向判断、墙壁吸附）
+│   ├── map_editor_state_objects.py      物体操作（放置/删除、墙壁吸附、尺寸旋转与碰撞验证）
+│   ├── map_editor_state_load.py         地图加载（从txt布局文件还原编辑器状态）
+│   ├── map_editor_editing.py            文本输入编辑（房间名/物体交互文本/数值字段）
+│   ├── map_editor_events.py             事件分发（快捷键、鼠标点击/拖拽/滚轮、撤销重做、保存加载）
+│   ├── map_editor_history.py            撤销/重做历史（状态快照序列化与恢复，支持80步）
+│   ├── map_editor_selection.py          选择与复制粘贴（区域选中、剪贴板、粘贴预览与确认）
+│   ├── map_editor_viewport.py           视口与滚动条（画布/面板/工具栏布局、滚动交互）
+│   ├── map_editor_draw_canvas.py        画布绘制（工具栏、网格、房间、门、物体、起点渲染）
+│   └── map_editor_draw_panel.py         属性面板绘制（楼层切换、网格尺寸、物体属性UI控件）
+│
+├── systems/                             游戏子系统
+│   ├── interaction.py                   交互系统入口（组合目标检测、交互流程、触发器Mixin）
+│   ├── interaction_config.py            交互常量（物体ID映射、瞄准容差、大厅出口锁定消息）
+│   ├── interaction_targeting.py         交互目标射线检测（视角射线与物体包围盒3D碰撞判定）
+│   ├── interaction_flow.py              交互流程（门/物体分发、钥匙开锁、电梯换层、物品拾取）
+│   ├── interaction_triggers.py          剧情触发器（手电/钥匙/保险丝/密码锁/黑板/电梯等实现）
+│   ├── audio_manager.py                 音频管理器（pygame.mixer封装、播放/停止、通道复用、冷却机制）
+│   └── mosquito_system.py               蚊子系统（生成/寻路/追逐/攻击状态机、受击判定、空间音频）
+│
+├── resources/                           资源管理
+│   ├── asset_manager.py                 纹理资产管理（加载png/jpg、按tile类型映射、降级纯色兜底）
+│   └── object_assets.py                 物体资源定义（ObjectSpec、从object.json加载尺寸/名称/贴图）
+│
+└── ui/                                  界面
+    ├── ui.py                            游戏UI渲染（HUD、物品栏、菜单/暂停/结算画面绘制与交互）
+    ├── ending.py                        结局文案定义（成功/失败标题文本）
+    └── ending_video.py                  结局视频播放（OpenCV解码mp4、帧缓存、淡入淡出、静态降级）
+```

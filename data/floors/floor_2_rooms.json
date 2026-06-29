@@ -12239,22 +12239,6 @@
       "interaction_prompt": "按 Space 检查西侧安全出口"
     },
     {
-      "x": 6,
-      "y": 8,
-      "object_id": "card",
-      "rotation": 0,
-      "length": 0.45,
-      "width": 0.3,
-      "height": 0.05,
-      "placement_height": 0.05,
-      "element_type": "trigger",
-      "is_trigger": true,
-      "trigger_id": "utility_badge",
-      "trigger_once": false,
-      "resource_role": "required",
-      "interaction_prompt": "按 Space 拾取废弃工牌"
-    },
-    {
       "x": 2,
       "y": 8,
       "object_id": "switch_box",
@@ -12269,6 +12253,22 @@
       "trigger_once": false,
       "resource_role": "required",
       "interaction_prompt": "按 Space 拉下磁吸释放开关"
+    },
+    {
+      "x": 6,
+      "y": 8,
+      "object_id": "card",
+      "rotation": 0,
+      "length": 0.45,
+      "width": 0.3,
+      "height": 0.05,
+      "placement_height": 0.05,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "utility_badge",
+      "trigger_once": false,
+      "resource_role": "required",
+      "interaction_prompt": "按 Space 拾取废弃工牌"
     },
     {
       "x": 21,
@@ -13201,6 +13201,21 @@
       "width": 1.0,
       "height": 1.2,
       "placement_height": 0.0
+    },
+    {
+      "x": 58,
+      "y": 25,
+      "object_id": "pass_card",
+      "rotation": 0,
+      "length": 0.48,
+      "width": 0.32,
+      "height": 0.05,
+      "placement_height": 0.05,
+      "element_type": "trigger",
+      "is_trigger": true,
+      "trigger_id": "maintenance_pass",
+      "resource_role": "required",
+      "interaction_prompt": "按 Space 打开抽屉"
     },
     {
       "x": 59,
@@ -14467,21 +14482,6 @@
       "trigger_id": "staff_code_276",
       "resource_role": "required",
       "interaction_prompt": "按 Space 查看工号纸条"
-    },
-    {
-      "x": 108,
-      "y": 22,
-      "object_id": "pass_card",
-      "rotation": 0,
-      "length": 0.48,
-      "width": 0.32,
-      "height": 0.05,
-      "placement_height": 0.05,
-      "element_type": "trigger",
-      "is_trigger": true,
-      "trigger_id": "maintenance_pass",
-      "resource_role": "required",
-      "interaction_prompt": "按 Space 打开抽屉"
     },
     {
       "x": 110,

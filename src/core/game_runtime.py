@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import time
 
 import pygame
@@ -19,6 +20,25 @@ from src.settings import (
 )
 
 
+FLOOR_AMBIENT_DELAY_SECONDS = 5.0
+FLOOR_AMBIENT_SOURCES = {
+    1: {
+        "sound": "laugh",
+        "channel": "floor_1_laugh_source",
+        "position": (65.0, 26.0),
+        "max_distance": 90.0,
+        "max_volume": 0.62,
+    },
+    2: {
+        "sound": "cry",
+        "channel": "floor_2_cry_source",
+        "position": (58.0, 25.0),
+        "max_distance": 90.0,
+        "max_volume": 0.62,
+    },
+}
+
+
 class GameRuntimeMixin:
     def update(self, dt: float) -> None:
         if self.state != STATE_PLAYING:
@@ -33,6 +53,7 @@ class GameRuntimeMixin:
         if self.state != STATE_PLAYING:
             return
         self._update_story_triggers()
+        self._update_floor_ambient_sources()
 
     def _handle_continuous_input(self, dt: float) -> None:
         keys = pygame.key.get_pressed()
@@ -91,6 +112,38 @@ class GameRuntimeMixin:
             self.set_message("这里闷得像蒸笼。手电电量还在往下掉。", 4.0)
         if region == "exit" and self.is_floor_power_restored() and player.has_item("maintenance_pass"):
             self.audio.play("knock", volume=0.5, cooldown=5.0)
+
+    def _update_floor_ambient_sources(self) -> None:
+        for floor, source in FLOOR_AMBIENT_SOURCES.items():
+            if self.current_floor != floor:
+                self.audio.stop_channel(str(source["channel"]))
+                continue
+            if time.monotonic() - getattr(self, "floor_entered_at", self.started_at) < FLOOR_AMBIENT_DELAY_SECONDS:
+                self.audio.stop_channel(str(source["channel"]))
+                continue
+            self._play_spatial_floor_source(source)
+
+    def _play_spatial_floor_source(self, source: dict) -> None:
+        source_x, source_y = source["position"]
+        dx = float(source_x) - self.player.x
+        dy = float(source_y) - self.player.y
+        distance = math.hypot(dx, dy)
+        max_distance = float(source["max_distance"])
+        if distance >= max_distance:
+            self.audio.stop_channel(str(source["channel"]))
+            return
+
+        distance_factor = max(0.0, min(1.0, 1.0 - distance / max_distance))
+        volume = float(source["max_volume"]) * (0.18 + 0.82 * distance_factor)
+        angle_to_source = math.atan2(dy, dx)
+        relative = (angle_to_source - self.player.angle + math.pi) % math.tau - math.pi
+        pan = math.sin(relative)
+        left = volume * (1.0 - max(0.0, pan) * 0.78)
+        right = volume * (1.0 + min(0.0, pan) * 0.78)
+        if abs(relative) > math.pi * 0.65:
+            left *= 0.62
+            right *= 0.62
+        self.audio.play_spatial_loop(str(source["sound"]), str(source["channel"]), left, right)
 
     def set_message(self, text: str, duration: float = 3.0) -> None:
         self.message = text

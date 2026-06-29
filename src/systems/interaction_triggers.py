@@ -70,7 +70,7 @@ class InteractionTriggerMixin:
             player.add_item("note_a")
             player.flags["got_blackboard_clue"] = True
             player.sanity = max(0, player.sanity - 7)
-            game.audio.play("laugh", volume=0.7, cooldown=1.0)
+            game.audio.play("item_pick")
             return "黑板上写着 0204。你获得纸条 A：不要回答点名。"
         player.flags["got_blackboard_clue"] = True
         return "黑板上的数字仍停在 0204，像刚写上去。"
@@ -137,7 +137,7 @@ class InteractionTriggerMixin:
         if not player.has_item("access_card"):
             player.add_item("access_card")
             player.sanity = max(0, player.sanity - 6)
-            game.audio.play("cry", volume=0.65, cooldown=1.0)
+            game.audio.play("item_pick")
             return "屏幕显示 LabMidnight.map。你在键盘旁找到一张门禁卡。"
         return "屏幕上显示：玩家位置，四层实验楼。出口状态：等待确认。"
 
