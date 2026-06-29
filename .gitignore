@@ -10,3 +10,5 @@ build/
 .env
 *.log
 .doc/
+work/
+outputs/

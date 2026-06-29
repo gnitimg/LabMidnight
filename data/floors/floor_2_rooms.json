@@ -12277,7 +12277,7 @@
       "rotation": 270,
       "length": 8.0,
       "width": 0.08,
-      "height": 1.2,
+      "height": 2.0,
       "placement_height": 2.0
     },
     {
@@ -12287,7 +12287,7 @@
       "rotation": 270,
       "length": 8.0,
       "width": 0.08,
-      "height": 1.2,
+      "height": 2.0,
       "placement_height": 2.0
     },
     {
@@ -14513,7 +14513,7 @@
       "is_trigger": true,
       "trigger_id": "whiteboard_memo",
       "resource_role": "required",
-      "interaction_prompt": "按 Space 扶起白板"
+      "interaction_prompt": "按 Space 查看白板背面"
     },
     {
       "x": 112,
@@ -14522,7 +14522,7 @@
       "rotation": 90,
       "length": 8.0,
       "width": 0.08,
-      "height": 1.2,
+      "height": 2.0,
       "placement_height": 2.0
     },
     {

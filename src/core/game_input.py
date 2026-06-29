@@ -66,6 +66,8 @@ class GameInputMixin:
             if key in (pygame.K_ESCAPE, pygame.K_b, pygame.K_i):
                 self.set_state(STATE_PLAYING)
             return
+        if self.state == STATE_SUCCESS and not self.ui.ending_accepts_input(True):
+            return
         if self.state == STATE_FAILURE and not self.ui.ending_accepts_input(False):
             return
         if self.state in (STATE_SUCCESS, STATE_FAILURE):

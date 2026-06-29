@@ -16,9 +16,8 @@ except ImportError:  # pragma: no cover - depends on the local environment.
     cv2 = None
 
 
-FAILURE_BLACKEN_SECONDS = 1.2
-FAILURE_LAST_FRAME_HOLD_SECONDS = 4.0
-FAILURE_FADE_OUT_SECONDS = 1.0
+ENDING_BLACKEN_SECONDS = 1.0
+ENDING_FADE_IN_SECONDS = 1.4
 
 
 class EndingVideoPlayer:
@@ -36,9 +35,9 @@ class EndingVideoPlayer:
         self._cached_frame: pygame.Surface | None = None
         self._last_frame: pygame.Surface | None = None
         self._sequence_started_at = 0.0
-        self._failure_video_finished_at: float | None = None
-        self._failure_ready_for_input = False
-        self._failure_fallback_active = False
+        self._video_finished_at: float | None = None
+        self._ready_for_input = False
+        self._fallback_active = False
         self._warned: set[str] = set()
         self._vignette = self._build_vignette()
         self._grain = self._build_grain()
@@ -49,9 +48,9 @@ class EndingVideoPlayer:
         self._cached_frame = None
         self._last_frame = None
         self._sequence_started_at = time.monotonic()
-        self._failure_video_finished_at = None
-        self._failure_ready_for_input = success
-        self._failure_fallback_active = False
+        self._video_finished_at = None
+        self._ready_for_input = False
+        self._fallback_active = False
         capture = self._captures.get(success)
         if capture is not None:
             capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -60,73 +59,55 @@ class EndingVideoPlayer:
         if self._current_success is not success:
             self.reset(success)
 
-        if not success:
-            return self._draw_failure_sequence(surface)
-        return self._draw_looping_video(surface, success)
+        return self._draw_once_sequence(surface, success)
 
     def accepts_input(self, success: bool) -> bool:
-        if success:
+        if cv2 is None or not self.paths[success].exists():
             return True
-        if cv2 is None or not self.paths[False].exists():
-            return True
-        return self._failure_ready_for_input or self._failure_fallback_active
+        return self._ready_for_input or self._fallback_active
 
-    def _draw_looping_video(self, surface: pygame.Surface, success: bool) -> bool:
-        capture = self._capture_for(success)
-        if capture is None:
-            return False
-
-        now = time.monotonic()
-        if self._cached_frame is None or now >= self._next_frame_at:
-            frame_surface = self._read_frame(success, capture)
-            if frame_surface is None:
-                return False
-            self._cached_frame = frame_surface
-            self._next_frame_at = now + self._frame_intervals.get(success, 1.0 / 30.0)
-
-        surface.blit(self._cached_frame, (0, 0))
-        surface.blit(self._vignette, (0, 0))
-        surface.blit(self._grain, (0, 0))
-        return True
-
-    def _draw_failure_sequence(self, surface: pygame.Surface) -> bool:
+    def _draw_once_sequence(self, surface: pygame.Surface, success: bool) -> bool:
         now = time.monotonic()
         elapsed = now - self._sequence_started_at
-        if elapsed < FAILURE_BLACKEN_SECONDS:
-            self._draw_black_overlay(surface, int(255 * self._smoothstep(elapsed / FAILURE_BLACKEN_SECONDS)))
+        if elapsed < ENDING_BLACKEN_SECONDS:
+            self._draw_black_overlay(surface, int(255 * self._smoothstep(elapsed / ENDING_BLACKEN_SECONDS)))
             return True
 
-        capture = self._capture_for(False)
+        capture = self._capture_for(success)
         if capture is None:
-            self._failure_fallback_active = True
-            self._failure_ready_for_input = True
+            self._fallback_active = True
+            self._ready_for_input = True
             return False
 
-        if self._failure_video_finished_at is None:
+        if self._video_finished_at is None:
             if self._cached_frame is None or now >= self._next_frame_at:
-                frame_surface = self._read_frame_once(False, capture)
+                frame_surface = self._read_frame_once(success, capture)
                 if frame_surface is None:
-                    self._failure_video_finished_at = now
+                    self._video_finished_at = now
+                    self._ready_for_input = True
                 else:
                     self._cached_frame = frame_surface
                     self._last_frame = frame_surface
-                    self._next_frame_at = now + self._frame_intervals.get(False, 1.0 / 30.0)
+                    self._next_frame_at = now + self._frame_intervals.get(success, 1.0 / 30.0)
             if self._cached_frame is None:
-                surface.fill((0, 0, 0))
+                self._fallback_active = True
+                self._ready_for_input = True
+                return False
             else:
                 self._draw_immersive_frame(surface, self._cached_frame)
+            fade_elapsed = elapsed - ENDING_BLACKEN_SECONDS
+            if fade_elapsed < ENDING_FADE_IN_SECONDS:
+                fade = 1.0 - self._smoothstep(fade_elapsed / ENDING_FADE_IN_SECONDS)
+                self._draw_black_overlay(surface, int(255 * fade))
             return True
 
-        hold_elapsed = now - self._failure_video_finished_at
-        if self._last_frame is not None and hold_elapsed < FAILURE_LAST_FRAME_HOLD_SECONDS + FAILURE_FADE_OUT_SECONDS:
-            self._draw_immersive_frame(surface, self._last_frame)
-            if hold_elapsed >= FAILURE_LAST_FRAME_HOLD_SECONDS:
-                fade = (hold_elapsed - FAILURE_LAST_FRAME_HOLD_SECONDS) / FAILURE_FADE_OUT_SECONDS
-                self._draw_black_overlay(surface, int(255 * self._smoothstep(fade)))
-            return True
+        if self._last_frame is None:
+            self._fallback_active = True
+            self._ready_for_input = True
+            return False
 
-        surface.fill((0, 0, 0))
-        self._failure_ready_for_input = True
+        self._draw_immersive_frame(surface, self._last_frame)
+        self._ready_for_input = True
         return True
 
     def _draw_immersive_frame(self, surface: pygame.Surface, frame: pygame.Surface) -> None:
@@ -163,18 +144,6 @@ class EndingVideoPlayer:
         ok, frame = capture.read()
         if not ok or frame is None:
             return None
-        return self._frame_to_surface(frame)
-
-    def _read_frame(self, success: bool, capture) -> pygame.Surface | None:
-        ok, frame = capture.read()
-        if not ok or frame is None:
-            capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            ok, frame = capture.read()
-            if not ok or frame is None:
-                path = self.paths[success]
-                self._warn_once(str(path), f"[video warning] unable to decode ending video frame: {path}")
-                return None
-
         return self._frame_to_surface(frame)
 
     def _frame_to_surface(self, frame) -> pygame.Surface:

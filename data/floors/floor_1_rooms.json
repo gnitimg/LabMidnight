@@ -12675,7 +12675,7 @@
       "rotation": 270,
       "length": 8.0,
       "width": 0.08,
-      "height": 1.2,
+      "height": 2.0,
       "placement_height": 2.0
     },
     {
@@ -12685,7 +12685,7 @@
       "rotation": 270,
       "length": 8.0,
       "width": 0.08,
-      "height": 1.2,
+      "height": 2.0,
       "placement_height": 2.0
     },
     {
@@ -14851,7 +14851,7 @@
       "rotation": 90,
       "length": 8.0,
       "width": 0.08,
-      "height": 1.2,
+      "height": 2.0,
       "placement_height": 2.0
     },
     {
@@ -14861,7 +14861,7 @@
       "rotation": 90,
       "length": 8.0,
       "width": 0.08,
-      "height": 1.2,
+      "height": 2.0,
       "placement_height": 2.0
     },
     {

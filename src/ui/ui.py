@@ -268,9 +268,9 @@ class UI:
 
     def draw_ending(self, surface: pygame.Surface, success: bool) -> None:
         if self.ending_video.draw(surface, success):
-            if success:
+            if success and self.ending_video.accepts_input(True):
                 self._draw_ending_video_hint(surface)
-            elif self.ending_video.accepts_input(False):
+            elif not success and self.ending_video.accepts_input(False):
                 self._draw_failure_retry_hint(surface)
             return
         if success:
